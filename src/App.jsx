@@ -20,6 +20,8 @@ export default function App() {
   const [equityCurve, setEquityCurve] = useState([]);
   const [drawdownCurve, setDrawdownCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [yearHeatmap, setYearHeatmap] = useState(null);
+  const [yearCursor, setYearCursor] = useState(() => new Date().getFullYear());
   const [view, setView] = useState('dashboard');
   const [period, setPeriod] = useState('all');
   const [basis, setBasis] = useState('net');
@@ -71,6 +73,16 @@ export default function App() {
   useEffect(() => {
     if (activeId) refreshDashboard(activeId, cursor, periodRange(period), basis);
   }, [activeId, cursor, period, basis, refreshDashboard]);
+
+  // Yearly heatmap loads independently (its own year cursor, basis-aware).
+  const loadYear = useCallback((accountId, year, pnlBasis) => {
+    if (!accountId) { setYearHeatmap(null); return; }
+    api.getYear(accountId, year, pnlBasis).then((r) => setYearHeatmap(r.heatmap)).catch(() => setYearHeatmap(null));
+  }, []);
+
+  useEffect(() => {
+    loadYear(activeId, yearCursor, basis);
+  }, [activeId, yearCursor, basis, loadYear]);
 
   // Switching accounts closes any open day drill-down (it belonged to the
   // previous account's dataset).
@@ -288,6 +300,7 @@ export default function App() {
                       accountId={activeId}
                       onImported={() => {
                         refreshDashboard(activeId, cursor, periodRange(period), basis);
+                        loadYear(activeId, yearCursor, basis);
                         if (selectedDate) openDay(selectedDate);
                       }}
                     />
@@ -305,7 +318,14 @@ export default function App() {
                 />
               </>
             ) : (
-              <Reports analytics={analytics} drawdownCurve={drawdownCurve} onDrill={drillToTrades} />
+              <Reports
+                analytics={analytics}
+                drawdownCurve={drawdownCurve}
+                onDrill={drillToTrades}
+                yearHeatmap={yearHeatmap}
+                onPrevYear={() => setYearCursor((y) => y - 1)}
+                onNextYear={() => setYearCursor((y) => y + 1)}
+              />
             )}
           </>
         )}

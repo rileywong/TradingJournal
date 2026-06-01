@@ -79,3 +79,49 @@ export function buildMonthlyCalendar(trades, year, month) {
 
   return { year, month, weeks, weekSummaries, monthlyPnl, tradingDays };
 }
+
+/**
+ * GitHub-style year heatmap of daily P&L: columns are Sun-first weeks spanning
+ * the whole year, rows are weekdays. Cells outside `year` are null. Returns
+ * `maxAbs` for color scaling plus yearly totals.
+ * @returns {{ year, weeks: (null|{date,month,pnl,trades})[][], yearlyPnl,
+ *   tradingDays, maxAbs }}
+ */
+export function buildYearHeatmap(trades, year) {
+  const daily = aggregateDaily(trades);
+  const jan1 = new Date(year, 0, 1);
+  const start = new Date(year, 0, 1 - jan1.getDay()); // Sunday on/before Jan 1
+  const dec31 = new Date(year, 11, 31);
+
+  const weeks = [];
+  let col = [];
+  let yearlyPnl = 0;
+  let tradingDays = 0;
+  let maxAbs = 0;
+
+  for (const d = new Date(start); d <= dec31 || col.length > 0; d.setDate(d.getDate() + 1)) {
+    if (d.getFullYear() !== year) {
+      col.push(null);
+    } else {
+      const key = dayKey(d);
+      const agg = daily[key];
+      const pnl = agg ? agg.pnl : 0;
+      if (agg) {
+        yearlyPnl = round2(yearlyPnl + pnl);
+        tradingDays += 1;
+        if (Math.abs(pnl) > maxAbs) maxAbs = Math.abs(pnl);
+      }
+      col.push({ date: key, month: d.getMonth(), pnl, trades: agg ? agg.trades : 0 });
+    }
+    if (col.length === 7) {
+      weeks.push(col);
+      col = [];
+    }
+  }
+  if (col.length > 0) {
+    while (col.length < 7) col.push(null);
+    weeks.push(col);
+  }
+
+  return { year, weeks, yearlyPnl, tradingDays, maxAbs };
+}

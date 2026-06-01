@@ -14,7 +14,7 @@ export {
   equityCurve,
   drawdownSeries,
 } from './metrics.js';
-export { aggregateDaily, buildMonthlyCalendar } from './calendar.js';
+export { aggregateDaily, buildMonthlyCalendar, buildYearHeatmap } from './calendar.js';
 export {
   tradesForDay,
   dailyStats,

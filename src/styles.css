@@ -314,6 +314,20 @@ tbody tr:hover { background: var(--surface-2); }
 .report-row-clickable:hover td { background: var(--accent-bg); }
 .report-row-clickable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+/* ── Year heatmap (GitHub-style) ──────────────────────────────────────── */
+.year-heatmap-card { padding: 16px 18px; }
+.year-hm-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.year-hm-head .cal-nav { display: flex; align-items: center; gap: 10px; }
+.year-hm-head .cal-nav strong { font-size: 15px; min-width: 46px; text-align: center; }
+.year-hm-totals { font-size: 14px; font-weight: 700; }
+.year-hm-scroll { overflow-x: auto; }
+.year-hm-months { display: grid; grid-auto-flow: column; grid-auto-columns: 15px; gap: 3px; height: 14px; margin-bottom: 3px; }
+.year-hm-month { font-size: 10px; color: var(--muted-2); font-weight: 700; white-space: nowrap; }
+.year-hm-grid { display: flex; gap: 3px; }
+.year-hm-col { display: flex; flex-direction: column; gap: 3px; }
+.year-hm-cell { width: 12px; height: 12px; border-radius: 3px; background: var(--surface-2); }
+.year-hm-cell.empty { background: transparent; }
+
 /* ── P&L heatmap ──────────────────────────────────────────────────────── */
 .heatmap-card { padding: 16px 18px; overflow-x: auto; }
 .heatmap { border-collapse: separate; border-spacing: 3px; }

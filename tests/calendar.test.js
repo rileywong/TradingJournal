@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { aggregateDaily, buildMonthlyCalendar } from '../core/calendar.js';
+import { aggregateDaily, buildMonthlyCalendar, buildYearHeatmap } from '../core/calendar.js';
 
 function trade(netPnl, closedAt) {
   return { netPnl, closedAt };
@@ -74,5 +74,37 @@ describe('buildMonthlyCalendar', () => {
     const cal = buildMonthlyCalendar([trade(999, '2024-04-01T10:00:00')], 2024, 3);
     expect(cal.monthlyPnl).toBe(0);
     expect(cal.tradingDays).toBe(0);
+  });
+});
+
+describe('buildYearHeatmap', () => {
+  it('lays out the whole year in Sun-first week columns', () => {
+    const hm = buildYearHeatmap([], 2024);
+    expect(hm.year).toBe(2024);
+    expect(hm.weeks.every((w) => w.length === 7)).toBe(true);
+    // 2024 has 366 days; with leading/trailing padding it spans 53 columns.
+    const dayCells = hm.weeks.flat().filter(Boolean);
+    expect(dayCells).toHaveLength(366);
+    // Jan 1 2024 is a Monday → first column has a leading null (Sun Dec 31 '23).
+    expect(hm.weeks[0][0]).toBeNull();
+    expect(hm.weeks[0][1]).toMatchObject({ date: '2024-01-01', month: 0 });
+  });
+
+  it('places daily P&L and totals, excluding other years', () => {
+    const hm = buildYearHeatmap(
+      [
+        trade(100, '2024-03-04T10:00:00'),
+        trade(-40, '2024-03-04T15:00:00'),
+        trade(200, '2024-07-15T11:00:00'),
+        trade(999, '2023-12-31T10:00:00'), // prior year — excluded
+      ],
+      2024
+    );
+    const cells = hm.weeks.flat().filter(Boolean);
+    const d4 = cells.find((c) => c.date === '2024-03-04');
+    expect(d4).toMatchObject({ pnl: 60, trades: 2 });
+    expect(hm.yearlyPnl).toBe(260);
+    expect(hm.tradingDays).toBe(2);
+    expect(hm.maxAbs).toBe(200);
   });
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import DrawdownChart from './DrawdownChart.jsx';
 import Heatmap from './Heatmap.jsx';
+import YearHeatmap from './YearHeatmap.jsx';
 
 function fmtMoney(n) {
   const sign = n < 0 ? '-' : '';
@@ -80,7 +81,7 @@ function BreakdownTable({ title, rows, keyLabel, onRowClick, isRowClickable = ()
  * Reports view — TradeZella-style performance breakdowns.
  * Props: analytics (from GET /api/analytics).
  */
-export default function Reports({ analytics, drawdownCurve, onDrill }) {
+export default function Reports({ analytics, drawdownCurve, onDrill, yearHeatmap, onPrevYear, onNextYear }) {
   if (!analytics) return <div className="empty-state">Loading reports…</div>;
   const { streaks, holdTime, winLoss } = analytics;
 
@@ -157,6 +158,9 @@ export default function Reports({ analytics, drawdownCurve, onDrill }) {
       <div className="card" style={{ padding: 14 }}>
         <DrawdownChart data={drawdownCurve} />
       </div>
+
+      <div className="section-title">Yearly P&amp;L</div>
+      <YearHeatmap data={yearHeatmap} onPrevYear={onPrevYear} onNextYear={onNextYear} />
 
       <div className="section-title">When You Trade — P&amp;L Heatmap</div>
       <Heatmap data={analytics.heatmap} />

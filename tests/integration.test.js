@@ -145,6 +145,21 @@ describe('period-scoped metrics & analytics', () => {
     expect(calGross.body.calendar.monthlyPnl).toBe(450);
   });
 
+  it('returns a yearly P&L heatmap (basis-aware)', async () => {
+    const user = await registerUser('year@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const net = await request(app).get(`/api/year?accountId=${acct.id}&year=2024`).set(h);
+    expect(net.body.heatmap.year).toBe(2024);
+    expect(net.body.heatmap.yearlyPnl).toBe(447);
+    expect(net.body.heatmap.tradingDays).toBe(2);
+
+    const gross = await request(app).get(`/api/year?accountId=${acct.id}&year=2024&basis=gross`).set(h);
+    expect(gross.body.heatmap.yearlyPnl).toBe(450);
+  });
+
   it('rejects a malformed from/to on metrics', async () => {
     const user = await registerUser('periodbad@example.com');
     const acct = await createAccount(user.token);

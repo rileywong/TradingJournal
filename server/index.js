@@ -12,7 +12,7 @@ import { signToken, verifyToken } from '../core/auth.js';
 import { parseExecutions } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
 import { computeMetrics, equityCurve, drawdownSeries } from '../core/metrics.js';
-import { buildMonthlyCalendar } from '../core/calendar.js';
+import { buildMonthlyCalendar, buildYearHeatmap } from '../core/calendar.js';
 import {
   dailyStats,
   tradesForDay,
@@ -177,6 +177,14 @@ export function createApp(repo = new Repository()) {
       calendar: buildMonthlyCalendar(trades, year, month),
       notedDays: repo.listNotedDays(req.userId, accountId),
     });
+  }));
+
+  // GitHub-style yearly P&L heatmap (respects net/gross basis).
+  app.get('/api/year', auth, wrap((req, res) => {
+    const { accountId } = req.query;
+    const year = parseInt(req.query.year, 10) || new Date().getFullYear();
+    const trades = projectBasis(repo.listTrades(req.userId, accountId), normalizeBasis(req.query.basis));
+    res.json({ heatmap: buildYearHeatmap(trades, year) });
   }));
 
   // Day drill-down: TradeZella-style daily stats, the day's trades, and an
