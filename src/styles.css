@@ -140,7 +140,18 @@ input:focus, select:focus, textarea:focus {
 .cal-cell.flat { background: var(--surface-2); }
 .cal-cell.win { background: var(--positive-bg); border-color: #c8efdd; }
 .cal-cell.loss { background: var(--negative-bg); border-color: #f7d4d4; }
-.cal-cell .day { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cal-cell .day { font-size: 12px; font-weight: 700; color: var(--muted); display: flex; align-items: center; justify-content: space-between; }
+.cell-note-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+
+/* ── Journal note editor ──────────────────────────────────────────────── */
+.journal-note { padding: 14px; }
+.journal-note-input {
+  width: 100%; resize: vertical; min-height: 84px; font: inherit; font-size: 13px;
+  color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+  background: var(--surface-2); box-sizing: border-box;
+}
+.journal-note-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.journal-note-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 10px; }
 .cal-cell .cell-pnl { font-size: 13px; font-weight: 800; }
 .cal-cell .cell-trades { font-size: 10px; color: var(--muted-2); font-weight: 600; }
 

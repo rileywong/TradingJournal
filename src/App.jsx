@@ -19,6 +19,7 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [trades, setTrades] = useState([]);
   const [calendar, setCalendar] = useState(null);
+  const [notedDays, setNotedDays] = useState([]);
   const [cursor, setCursor] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
@@ -51,6 +52,7 @@ export default function App() {
     setEquityCurve(m.equityCurve || []);
     setTrades(t.trades);
     setCalendar(c.calendar);
+    setNotedDays(c.notedDays || []);
     setAnalytics(a.analytics);
   }, []);
 
@@ -75,6 +77,7 @@ export default function App() {
     setAnalytics(null);
     setTrades([]);
     setCalendar(null);
+    setNotedDays([]);
     setSelectedDate(null);
     setDayDetail(null);
   };
@@ -106,6 +109,19 @@ export default function App() {
     setSelectedDate(null);
     setDayDetail(null);
   };
+
+  const saveDayNote = useCallback(async (date, note) => {
+    if (!activeId) return;
+    const { note: saved } = await api.setDayNote(activeId, date, note);
+    // Reflect the saved note in the open panel and the calendar's note dots.
+    setDayDetail((prev) => (prev && prev.date === date ? { ...prev, note: saved } : prev));
+    setNotedDays((prev) => {
+      const has = prev.includes(date);
+      if (saved && !has) return [...prev, date];
+      if (!saved && has) return prev.filter((d) => d !== date);
+      return prev;
+    });
+  }, [activeId]);
 
   const shiftMonth = (delta) => {
     setCursor((c) => {
@@ -176,6 +192,7 @@ export default function App() {
                 <div className="row">
                   <PnlCalendar
                     calendar={calendar}
+                    notedDays={notedDays}
                     onPrev={() => shiftMonth(-1)}
                     onNext={() => shiftMonth(1)}
                     onSelectDay={openDay}
@@ -209,6 +226,7 @@ export default function App() {
           loading={dayLoading}
           onClose={closeDay}
           onTag={onTag}
+          onSaveNote={saveDayNote}
         />
       )}
 

@@ -19,6 +19,7 @@ export class Repository {
     this.accounts = new Map(); // id → account
     this.executions = new Map(); // id → execution
     this.trades = new Map(); // id → trade
+    this.dailyNotes = new Map(); // `${accountId}::${date}` → { note, updatedAt }
   }
 
   // --- users -------------------------------------------------------------
@@ -145,6 +146,44 @@ export class Repository {
   listExecutions(userId, accountId) {
     this.getAccount(userId, accountId); // RLS gate
     return [...this.executions.values()].filter((e) => e.accountId === accountId);
+  }
+
+  // --- daily journal notes ----------------------------------------------
+  // Keyed by (account, date) rather than trade id, so notes survive a
+  // re-import (which regenerates trade rows). RLS via the account chain.
+  dailyNoteKey(accountId, date) {
+    return `${accountId}::${date}`;
+  }
+
+  /** The saved journal note for a day, or '' when none exists. */
+  getDailyNote(userId, accountId, date) {
+    this.getAccount(userId, accountId); // RLS gate
+    const entry = this.dailyNotes.get(this.dailyNoteKey(accountId, date));
+    return entry ? entry.note : '';
+  }
+
+  /** Upsert (empty/whitespace clears) the journal note for a day. */
+  setDailyNote(userId, accountId, date, note) {
+    this.getAccount(userId, accountId); // RLS gate
+    const text = String(note ?? '');
+    const key = this.dailyNoteKey(accountId, date);
+    if (text.trim() === '') {
+      this.dailyNotes.delete(key);
+      return '';
+    }
+    this.dailyNotes.set(key, { note: text, updatedAt: new Date().toISOString() });
+    return text;
+  }
+
+  /** Set of YYYY-MM-DD keys that have a saved note (for calendar indicators). */
+  listNotedDays(userId, accountId) {
+    this.getAccount(userId, accountId); // RLS gate
+    const prefix = `${accountId}::`;
+    const dates = [];
+    for (const key of this.dailyNotes.keys()) {
+      if (key.startsWith(prefix)) dates.push(key.slice(prefix.length));
+    }
+    return dates;
   }
 
   // --- internals ---------------------------------------------------------

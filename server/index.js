@@ -141,7 +141,10 @@ export function createApp(repo = new Repository()) {
     const year = parseInt(req.query.year, 10) || now.getFullYear();
     const month = parseInt(req.query.month, 10) || now.getMonth() + 1;
     const trades = repo.listTrades(req.userId, accountId);
-    res.json({ calendar: buildMonthlyCalendar(trades, year, month) });
+    res.json({
+      calendar: buildMonthlyCalendar(trades, year, month),
+      notedDays: repo.listNotedDays(req.userId, accountId),
+    });
   }));
 
   // Day drill-down: TradeZella-style daily stats, the day's trades, and an
@@ -158,7 +161,18 @@ export function createApp(repo = new Repository()) {
       stats: dailyStats(trades, date, { startingBalance: account.startingBalance }),
       trades: tradesForDay(trades, date),
       cumulative: dailyCumulativePnl(trades, date),
+      note: repo.getDailyNote(req.userId, accountId, date),
     });
+  }));
+
+  // Upsert the journal note for a day (empty body clears it).
+  app.put('/api/day/note', auth, wrap((req, res) => {
+    const { accountId, date, note } = req.body || {};
+    if (!isValidDateKey(date)) {
+      return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+    }
+    const saved = repo.setDailyNote(req.userId, accountId, date, note);
+    res.json({ date, note: saved });
   }));
 
   // Reports: performance breakdowns by symbol / side / weekday / hour / tag,

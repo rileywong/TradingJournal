@@ -230,6 +230,55 @@ describe('day drill-down', () => {
   });
 });
 
+describe('daily journal notes', () => {
+  it('saves a note and returns it on the day endpoint', async () => {
+    const user = await registerUser('note@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const put = await request(app)
+      .put('/api/day/note')
+      .set(h)
+      .send({ accountId: acct.id, date: '2024-03-04', note: 'Good discipline today.' });
+    expect(put.status).toBe(200);
+    expect(put.body.note).toBe('Good discipline today.');
+
+    const day = await request(app).get(`/api/day?accountId=${acct.id}&date=2024-03-04`).set(h);
+    expect(day.body.note).toBe('Good discipline today.');
+
+    // calendar reports the noted day
+    const cal = await request(app).get(`/api/calendar?accountId=${acct.id}&year=2024&month=3`).set(h);
+    expect(cal.body.notedDays).toContain('2024-03-04');
+  });
+
+  it('clears a note when sent empty', async () => {
+    const user = await registerUser('clearnote@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).put('/api/day/note').set(h).send({ accountId: acct.id, date: '2024-03-04', note: 'x' });
+    await request(app).put('/api/day/note').set(h).send({ accountId: acct.id, date: '2024-03-04', note: '' });
+    const day = await request(app).get(`/api/day?accountId=${acct.id}&date=2024-03-04`).set(h);
+    expect(day.body.note).toBe('');
+  });
+
+  it('rejects a malformed date and enforces RLS', async () => {
+    const alice = await registerUser('alice5@example.com');
+    const bob = await registerUser('bob5@example.com');
+    const aliceAcct = await createAccount(alice.token);
+    const ha = { Authorization: `Bearer ${alice.token}` };
+
+    const bad = await request(app).put('/api/day/note').set(ha).send({ accountId: aliceAcct.id, date: 'nope', note: 'x' });
+    expect(bad.status).toBe(400);
+
+    const rls = await request(app)
+      .put('/api/day/note')
+      .set('Authorization', `Bearer ${bob.token}`)
+      .send({ accountId: aliceAcct.id, date: '2024-03-04', note: 'hacked' });
+    expect(rls.status).toBe(404);
+  });
+});
+
 describe('analytics report', () => {
   it('returns performance breakdowns for the account\'s trades', async () => {
     const user = await registerUser('reports@example.com');

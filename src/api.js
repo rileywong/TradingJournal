@@ -57,4 +57,6 @@ export const api = {
   getDay: (accountId, date) =>
     request(`/day?accountId=${accountId}&date=${date}`),
   getAnalytics: (accountId) => request(`/analytics?accountId=${accountId}`),
+  setDayNote: (accountId, date, note) =>
+    request('/day/note', { method: 'PUT', body: { accountId, date, note } }),
 };

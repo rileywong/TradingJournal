@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import DayChart from './DayChart.jsx';
 import TradesTable from './TradesTable.jsx';
 
@@ -34,9 +34,10 @@ function fmtLongDate(dateKey) {
  *   day:    { date, stats, trades, cumulative } | null
  *   loading: boolean
  *   onClose: () => void
- *   onTag:  (tradeId, tags[]) => void   // forwarded to the trade log
+ *   onTag:  (tradeId, tags[]) => void       // forwarded to the trade log
+ *   onSaveNote: (date, note) => Promise     // persist the journal note
  */
-export default function DayDetail({ day, loading, onClose, onTag }) {
+export default function DayDetail({ day, loading, onClose, onTag, onSaveNote }) {
   const stats = day?.stats;
   const net = stats?.netPnl ?? 0;
   const netClass = net > 0 ? 'pos' : net < 0 ? 'neg' : 'muted';
@@ -101,12 +102,64 @@ export default function DayDetail({ day, loading, onClose, onTag }) {
               <DayChart data={day.cumulative} />
             </div>
 
+            <div className="section-title">Journal Note</div>
+            <JournalNote
+              key={day.date}
+              date={day.date}
+              note={day.note || ''}
+              onSave={onSaveNote}
+            />
+
             <div className="section-title">
               Trades <span className="muted">({day.trades.length})</span>
             </div>
             <TradesTable trades={day.trades} onTag={onTag} />
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Editable per-day journal note with a dirty-state save button. */
+function JournalNote({ date, note, onSave }) {
+  const [text, setText] = useState(note);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setText(note);
+    setSaved(false);
+  }, [note, date]);
+
+  const dirty = text !== note;
+
+  const save = async () => {
+    if (!onSave || saving) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      await onSave(date, text);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="card journal-note">
+      <textarea
+        className="journal-note-input"
+        placeholder="What went well? What mistakes did you make? Notes on setups, emotions, execution…"
+        value={text}
+        onChange={(e) => { setText(e.target.value); setSaved(false); }}
+        rows={4}
+      />
+      <div className="journal-note-actions">
+        {saved && !dirty && <span className="muted" style={{ fontSize: 12 }}>Saved ✓</span>}
+        <button className="btn-primary" onClick={save} disabled={!dirty || saving}>
+          {saving ? 'Saving…' : 'Save note'}
+        </button>
       </div>
     </div>
   );
