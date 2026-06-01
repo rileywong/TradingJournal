@@ -225,14 +225,16 @@ reports update atomically — the core state-transition guarantee verified in
 | `POST /api/auth/login`   | Authenticate → token                                          |
 | `GET  /api/accounts`     | List the caller's accounts                                    |
 | `POST /api/accounts`     | Create an account                                             |
+| `PATCH /api/accounts/:id`| Edit an account (name / balance / commission)                |
+| `DELETE /api/accounts/:id`| Delete an account; cascades to its trades, notes, and tags  |
 | `POST /api/import`       | Import a brokerage CSV (RLS-gated)                            |
 | `GET  /api/trades`       | Trade log; optional `symbol/side/tag/outcome/from/to` filters |
-| `PATCH /api/trades/:id`  | Update tags (durable across re-import, de-duplicated)         |
+| `PATCH /api/trades/:id`  | Update tags and/or planned `riskAmount` (durable by signature)|
 | `GET  /api/metrics`      | Snapshot + `equityCurve` + `drawdownCurve` + `score`          |
-| `GET  /api/calendar`     | Monthly P&L grid + `notedDays`                                 |
+| `GET  /api/calendar`     | Monthly P&L grid (+ weekly roll-ups) + `notedDays`           |
 | `GET  /api/day`          | Daily stats + that day's trades + intraday curve + note       |
 | `PUT  /api/day/note`     | Upsert a day's journal note (empty clears)                    |
-| `GET  /api/analytics`    | Breakdowns (symbol/side/weekday/hour/tag), streaks, hold time |
+| `GET  /api/analytics`    | Breakdowns, streaks, hold time, winners-vs-losers, R-multiple |
 
 Every data route is RLS-gated through the owning `user → account` chain.
 
@@ -283,3 +285,7 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 8. ✅ Daily journal notes (persistent, per-day)
 9. ✅ Composite Trade Score
 10. ✅ Trade-log filtering + durable custom tags
+11. ✅ Winners-vs-losers report + trade-log CSV export
+12. ✅ Account management (edit / delete with cascade)
+13. ✅ Weekly P&L roll-ups on the calendar
+14. ✅ Per-trade risk + R-multiple analytics

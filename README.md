@@ -23,7 +23,12 @@ institutional-grade performance metrics on a professional dashboard.
   snapshot: stats, an intraday cumulative-P&L chart, that day's trades, and a
   persistent journal note (notes survive re-imports and show as calendar dots).
 - **Reports** — performance breakdowns by symbol / side / day-of-week / hour /
-  tag, win/loss streaks, hold-time analysis, and an underwater drawdown chart.
+  tag, winners-vs-losers comparison, win/loss streaks, hold-time analysis,
+  R-multiple expectancy (set planned risk per trade), and an underwater
+  drawdown chart.
+- **Accounts** — create, edit, and delete accounts (delete cascades to all of
+  the account's trades, notes, and tags). The calendar shows weekly P&L
+  roll-ups beside the month grid, and the trade log exports to CSV.
 - **Charts** — equity curve, intraday P&L, and drawdown rendered with
   [lightweight-charts](https://github.com/tradingview/lightweight-charts).
 - **Light-theme dashboard** — score gauge, metrics snapshot grid, monthly P&L
@@ -74,12 +79,14 @@ existing `dist/` build.)
 npm test
 ```
 
-129 tests across the CSV tokenizer, tolerant date parser, broker detection,
+151 tests across the CSV tokenizer, tolerant date parser, broker detection,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
-edge cases, drawdown series), calendar & day aggregation, analytics breakdowns,
-the composite Trade Score, trade filtering, journal-note persistence, and full
-API integration (auth, RLS isolation, import→state-transition, re-import
-idempotency, durable tagging, day/analytics/notes/filter endpoints).
+edge cases, drawdown series), calendar/day/weekly aggregation, analytics
+breakdowns (incl. winners-vs-losers and R-multiple), the composite Trade Score,
+trade filtering, CSV export, journal-note persistence, durable tags & risk, and
+full API integration (auth, RLS isolation, import→state-transition, re-import
+idempotency, account update/delete cascade, day/analytics/notes/filter
+endpoints).
 
 A `SessionStart` hook (`.claude/hooks/session-start.sh`) installs dependencies
 automatically so the suite is ready to run in Claude Code on the web sessions.
