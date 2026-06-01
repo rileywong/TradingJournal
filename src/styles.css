@@ -132,6 +132,10 @@ input:focus, select:focus, textarea:focus {
   background: var(--surface-2);
   min-height: 64px;
 }
+.cal-cell.clickable { cursor: pointer; transition: transform 0.08s ease, box-shadow 0.12s ease, border-color 0.12s ease; }
+.cal-cell.clickable:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,24,40,0.12); border-color: var(--accent); }
+.cal-cell.clickable:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.cal-cell.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
 .cal-cell.empty { background: transparent; border: none; }
 .cal-cell.flat { background: var(--surface-2); }
 .cal-cell.win { background: var(--positive-bg); border-color: #c8efdd; }
@@ -224,3 +228,28 @@ tbody tr:hover { background: var(--surface-2); }
 .modal { background: var(--surface); border-radius: 16px; padding: 26px; width: 100%; max-width: 420px; box-shadow: 0 10px 40px rgba(16,24,40,0.18); }
 .modal h2 { margin: 0 0 16px; font-size: 18px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+/* ── Day drill-down panel ─────────────────────────────────────────────── */
+.modal.day-detail {
+  max-width: 1040px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  padding: 22px 24px 26px;
+}
+.day-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+.day-detail-head h2 { font-size: 20px; }
+.day-detail-head-right { display: flex; align-items: center; gap: 14px; }
+.day-detail-net { font-size: 26px; font-weight: 800; }
+.day-detail-net.pos { color: var(--positive); }
+.day-detail-net.neg { color: var(--negative); }
+.day-detail-net.muted { color: var(--muted); }
+.day-stats-grid { margin-bottom: 4px; }
+.day-stats-grid .metric-card .value { font-size: 18px; }
+
+/* Intraday cumulative-P&L chart */
+.day-chart { position: relative; width: 100%; }
+.day-chart-canvas { width: 100%; height: 240px; }
+.day-chart-empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 13px;
+}

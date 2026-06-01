@@ -54,4 +54,6 @@ export const api = {
   getMetrics: (accountId) => request(`/metrics?accountId=${accountId}`),
   getCalendar: (accountId, year, month) =>
     request(`/calendar?accountId=${accountId}&year=${year}&month=${month}`),
+  getDay: (accountId, date) =>
+    request(`/day?accountId=${accountId}&date=${date}`),
 };

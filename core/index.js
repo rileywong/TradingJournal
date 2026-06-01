@@ -11,6 +11,12 @@ export { matchTrades } from './matcher.js';
 export { computeMetrics, computeMaxDrawdown, equityCurve } from './metrics.js';
 export { aggregateDaily, buildMonthlyCalendar } from './calendar.js';
 export {
+  tradesForDay,
+  dailyStats,
+  dailyCumulativePnl,
+  isValidDateKey,
+} from './day.js';
+export {
   hashPassword,
   verifyPassword,
   signToken,

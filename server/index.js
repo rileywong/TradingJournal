@@ -13,6 +13,12 @@ import { parseExecutions } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
 import { computeMetrics, equityCurve } from '../core/metrics.js';
 import { buildMonthlyCalendar } from '../core/calendar.js';
+import {
+  dailyStats,
+  tradesForDay,
+  dailyCumulativePnl,
+  isValidDateKey,
+} from '../core/day.js';
 
 export function createApp(repo = new Repository()) {
   const app = express();
@@ -135,6 +141,23 @@ export function createApp(repo = new Repository()) {
     const month = parseInt(req.query.month, 10) || now.getMonth() + 1;
     const trades = repo.listTrades(req.userId, accountId);
     res.json({ calendar: buildMonthlyCalendar(trades, year, month) });
+  }));
+
+  // Day drill-down: TradeZella-style daily stats, the day's trades, and an
+  // intraday cumulative-P&L series for the chart.
+  app.get('/api/day', auth, wrap((req, res) => {
+    const { accountId, date } = req.query;
+    if (!isValidDateKey(date)) {
+      return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+    }
+    const account = repo.getAccount(req.userId, accountId); // RLS gate
+    const trades = repo.listTrades(req.userId, accountId);
+    res.json({
+      date,
+      stats: dailyStats(trades, date, { startingBalance: account.startingBalance }),
+      trades: tradesForDay(trades, date),
+      cumulative: dailyCumulativePnl(trades, date),
+    });
   }));
 
   // Serve the built frontend (single-process production/preview mode) when a

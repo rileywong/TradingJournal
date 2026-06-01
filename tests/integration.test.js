@@ -173,6 +173,63 @@ describe('import → state transition', () => {
   });
 });
 
+describe('day drill-down', () => {
+  it('returns daily stats, the day\'s trades, and an intraday P&L curve', async () => {
+    const user = await registerUser('day@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    // 2024-03-04: AAPL only, +298 net
+    const day = await request(app)
+      .get(`/api/day?accountId=${acct.id}&date=2024-03-04`)
+      .set(h);
+    expect(day.status).toBe(200);
+    expect(day.body.stats.netPnl).toBe(298);
+    expect(day.body.stats.totalTrades).toBe(1);
+    expect(day.body.trades).toHaveLength(1);
+    expect(day.body.trades[0].symbol).toBe('AAPL');
+    expect(day.body.cumulative).toHaveLength(1);
+    expect(day.body.cumulative[0].value).toBe(298);
+  });
+
+  it('returns an empty (but well-formed) snapshot for a day with no trades', async () => {
+    const user = await registerUser('emptyday@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const day = await request(app)
+      .get(`/api/day?accountId=${acct.id}&date=2024-03-10`)
+      .set(h);
+    expect(day.status).toBe(200);
+    expect(day.body.stats.totalTrades).toBe(0);
+    expect(day.body.trades).toEqual([]);
+    expect(day.body.cumulative).toEqual([]);
+  });
+
+  it('rejects a malformed date', async () => {
+    const user = await registerUser('baddate@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const res = await request(app)
+      .get(`/api/day?accountId=${acct.id}&date=03-04-2024`)
+      .set(h);
+    expect(res.status).toBe(400);
+  });
+
+  it('enforces RLS — a user cannot read another user\'s day', async () => {
+    const alice = await registerUser('alice3@example.com');
+    const bob = await registerUser('bob3@example.com');
+    const aliceAcct = await createAccount(alice.token);
+    const res = await request(app)
+      .get(`/api/day?accountId=${aliceAcct.id}&date=2024-03-04`)
+      .set('Authorization', `Bearer ${bob.token}`);
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('trade tagging', () => {
   it('persists interactive tags on a trade', async () => {
     const user = await registerUser('tags@example.com');

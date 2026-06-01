@@ -5,6 +5,7 @@ import MetricsGrid from './components/MetricsGrid.jsx';
 import PnlCalendar from './components/PnlCalendar.jsx';
 import TradesTable from './components/TradesTable.jsx';
 import ImportPanel from './components/ImportPanel.jsx';
+import DayDetail from './components/DayDetail.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -18,6 +19,9 @@ export default function App() {
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
   });
   const [showNewAccount, setShowNewAccount] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [dayDetail, setDayDetail] = useState(null);
+  const [dayLoading, setDayLoading] = useState(false);
 
   // Load accounts on login
   useEffect(() => {
@@ -46,6 +50,13 @@ export default function App() {
     if (activeId) refreshDashboard(activeId, cursor);
   }, [activeId, cursor, refreshDashboard]);
 
+  // Switching accounts closes any open day drill-down (it belonged to the
+  // previous account's dataset).
+  useEffect(() => {
+    setSelectedDate(null);
+    setDayDetail(null);
+  }, [activeId]);
+
   const logout = () => {
     clearSession();
     setUser(null);
@@ -54,11 +65,36 @@ export default function App() {
     setMetrics(null);
     setTrades([]);
     setCalendar(null);
+    setSelectedDate(null);
+    setDayDetail(null);
   };
 
   const onTag = async (id, tags) => {
     const { trade } = await api.tagTrade(id, tags);
     setTrades((prev) => prev.map((t) => (t.id === trade.id ? trade : t)));
+    // Keep an open day drill-down in sync with the tag edit.
+    setDayDetail((prev) =>
+      prev ? { ...prev, trades: prev.trades.map((t) => (t.id === trade.id ? trade : t)) } : prev
+    );
+  };
+
+  const openDay = useCallback(async (date) => {
+    if (!activeId) return;
+    setSelectedDate(date);
+    setDayLoading(true);
+    try {
+      const detail = await api.getDay(activeId, date);
+      setDayDetail(detail);
+    } catch {
+      setDayDetail(null);
+    } finally {
+      setDayLoading(false);
+    }
+  }, [activeId]);
+
+  const closeDay = () => {
+    setSelectedDate(null);
+    setDayDetail(null);
   };
 
   const shiftMonth = (delta) => {
@@ -110,12 +146,17 @@ export default function App() {
                 calendar={calendar}
                 onPrev={() => shiftMonth(-1)}
                 onNext={() => shiftMonth(1)}
+                onSelectDay={openDay}
+                selectedDate={selectedDate}
               />
               <div className="card" style={{ padding: 18 }}>
                 <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
                 <ImportPanel
                   accountId={activeId}
-                  onImported={() => refreshDashboard(activeId, cursor)}
+                  onImported={() => {
+                    refreshDashboard(activeId, cursor);
+                    if (selectedDate) openDay(selectedDate);
+                  }}
                 />
               </div>
             </div>
@@ -125,6 +166,15 @@ export default function App() {
           </>
         )}
       </div>
+
+      {(dayDetail || dayLoading) && (
+        <DayDetail
+          day={dayDetail}
+          loading={dayLoading}
+          onClose={closeDay}
+          onTag={onTag}
+        />
+      )}
 
       {showNewAccount && (
         <NewAccountModal

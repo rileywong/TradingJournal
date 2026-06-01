@@ -13,7 +13,7 @@ function fmtCompact(n) {
   return `${sign}$${abs.toFixed(0)}`;
 }
 
-export default function PnlCalendar({ calendar, onPrev, onNext }) {
+export default function PnlCalendar({ calendar, onPrev, onNext, onSelectDay, selectedDate }) {
   if (!calendar) return null;
   const { year, month, weeks, monthlyPnl } = calendar;
   const pnlClass = monthlyPnl > 0 ? 'pos' : monthlyPnl < 0 ? 'neg' : 'muted';
@@ -38,8 +38,18 @@ export default function PnlCalendar({ calendar, onPrev, onNext }) {
           if (!cell) return <div className="cal-cell empty" key={`e${i}`} />;
           const cls = cell.trades === 0 ? 'flat' : cell.pnl > 0 ? 'win' : cell.pnl < 0 ? 'loss' : 'flat';
           const pnlCls = cell.pnl > 0 ? 'pos' : cell.pnl < 0 ? 'neg' : 'muted';
+          const clickable = cell.trades > 0 && typeof onSelectDay === 'function';
+          const selected = selectedDate === cell.date;
           return (
-            <div className={`cal-cell ${cls}`} key={cell.date}>
+            <div
+              className={`cal-cell ${cls}${clickable ? ' clickable' : ''}${selected ? ' selected' : ''}`}
+              key={cell.date}
+              onClick={clickable ? () => onSelectDay(cell.date) : undefined}
+              role={clickable ? 'button' : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectDay(cell.date); } } : undefined}
+              aria-label={clickable ? `${cell.date}: ${cell.trades} trades, P&L ${fmtCompact(cell.pnl)}` : undefined}
+            >
               <div className="day">{cell.day}</div>
               {cell.trades > 0 ? (
                 <>
