@@ -100,6 +100,43 @@ describe('row-level security (user isolation)', () => {
   });
 });
 
+describe('cross-account aggregate (accountId=all)', () => {
+  it('combines metrics, trades, and analytics across all the user\'s accounts', async () => {
+    const user = await registerUser('agg@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const a1 = await createAccount(user.token, { name: 'A1', startingBalance: 10000 });
+    const a2 = await createAccount(user.token, { name: 'A2', startingBalance: 5000 });
+    await request(app).post('/api/import').set(h).send({ accountId: a1.id, csv: TOS_CSV }); // +447, 2 trades
+    const nvda = 'Symbol,Action,Quantity,Price,Timestamp\nNVDA,BUY,10,500,2024-03-06 11:00:00\nNVDA,SELL,10,510,2024-03-06 12:00:00';
+    await request(app).post('/api/import').set(h).send({ accountId: a2.id, csv: nvda }); // +100, 1 trade
+
+    const all = await request(app).get('/api/metrics?accountId=all').set(h);
+    expect(all.body.metrics.totalTrades).toBe(3);
+    expect(all.body.metrics.netPnl).toBe(547); // 447 + 100
+    expect(all.body.metrics.startingBalance).toBe(15000); // summed
+
+    const trades = await request(app).get('/api/trades?accountId=all').set(h);
+    expect(trades.body.trades).toHaveLength(3);
+
+    const an = await request(app).get('/api/analytics?accountId=all').set(h);
+    expect(an.body.analytics.bySymbol.map((s) => s.key).sort()).toEqual(['AAPL', 'NVDA', 'TSLA']);
+
+    const yr = await request(app).get('/api/year?accountId=all&year=2024').set(h);
+    expect(yr.body.heatmap.yearlyPnl).toBe(547);
+  });
+
+  it('aggregate only spans the caller\'s own accounts (RLS)', async () => {
+    const alice = await registerUser('aliceagg@example.com');
+    const bob = await registerUser('bobagg@example.com');
+    const aAcct = await createAccount(alice.token);
+    await request(app).post('/api/import').set({ Authorization: `Bearer ${alice.token}` }).send({ accountId: aAcct.id, csv: TOS_CSV });
+
+    // Bob has no accounts → his aggregate is empty, never sees Alice's trades
+    const bobAll = await request(app).get('/api/metrics?accountId=all').set({ Authorization: `Bearer ${bob.token}` });
+    expect(bobAll.body.metrics.totalTrades).toBe(0);
+  });
+});
+
 describe('period-scoped metrics & analytics', () => {
   it('scopes metrics, score, and analytics to a date range', async () => {
     const user = await registerUser('period@example.com');

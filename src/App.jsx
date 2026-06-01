@@ -199,7 +199,10 @@ export default function App() {
 
   if (!user) return <Auth onAuthed={setUser} />;
 
+  const isAll = activeId === 'all';
   const activeAccount = accounts.find((a) => a.id === activeId);
+  // 'all' is a valid (aggregate) scope even though it isn't a real account.
+  const scopeReady = isAll || !!activeAccount;
 
   return (
     <div className="app">
@@ -211,6 +214,7 @@ export default function App() {
         <div className="topbar-right">
           {accounts.length > 0 && (
             <select value={activeId || ''} onChange={(e) => setActiveId(e.target.value)}>
+              {accounts.length > 1 && <option value="all">All accounts</option>}
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
@@ -233,7 +237,7 @@ export default function App() {
       </div>
 
       <div className="container">
-        {!activeAccount ? (
+        {!scopeReady ? (
           <div className="empty-state">Create an account to begin tracking trades.</div>
         ) : (
           <>
@@ -293,19 +297,26 @@ export default function App() {
                     notedDays={notedDays}
                     onPrev={() => shiftMonth(-1)}
                     onNext={() => shiftMonth(1)}
-                    onSelectDay={openDay}
+                    onSelectDay={isAll ? undefined : openDay}
                     selectedDate={selectedDate}
                   />
                   <div className="card" style={{ padding: 18 }}>
                     <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
-                    <ImportPanel
-                      accountId={activeId}
-                      onImported={() => {
-                        refreshDashboard(activeId, cursor, periodRange(period), basis);
-                        loadYear(activeId, yearCursor, basis);
-                        if (selectedDate) openDay(selectedDate);
-                      }}
-                    />
+                    {isAll ? (
+                      <div className="empty-state" style={{ padding: '18px 8px' }}>
+                        Select a specific account to import. You're viewing the combined
+                        roll-up of all accounts.
+                      </div>
+                    ) : (
+                      <ImportPanel
+                        accountId={activeId}
+                        onImported={() => {
+                          refreshDashboard(activeId, cursor, periodRange(period), basis);
+                          loadYear(activeId, yearCursor, basis);
+                          if (selectedDate) openDay(selectedDate);
+                        }}
+                      />
+                    )}
                   </div>
                 </div>
 
@@ -315,7 +326,7 @@ export default function App() {
                   onTag={onTag}
                   onRisk={onRisk}
                   onTradeNote={onTradeNote}
-                  onManageTags={() => setShowTagManager(true)}
+                  onManageTags={isAll ? undefined : () => setShowTagManager(true)}
                   filter={tradeFilter}
                   onFilterChange={setTradeFilter}
                 />

@@ -298,3 +298,5 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 18. ✅ Weekday × hour P&L heatmap
 19. ✅ Persisted per-trade journal notes
 20. ✅ Yearly P&L heatmap; per-trade notes in the day chart tooltip; tag management
+21. ✅ Append import mode — merge multiple brokers into one account
+22. ✅ Cross-account aggregate scope (`accountId=all`)

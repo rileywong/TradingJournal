@@ -11,7 +11,11 @@ institutional-grade performance metrics on a professional dashboard.
   every data access is RLS-scoped to the owning user.
 - **CSV import engine** — auto-detects ThinkOrSwim / Robinhood / Webull / generic
   exports; tolerant date & number parsing; corrupted rows routed to an error
-  bucket instead of failing the import.
+  bucket instead of failing the import. **Append mode** merges several brokers
+  into one account (re-deriving trades from the combined fills, so a position
+  opened on one broker and closed on another still matches; re-uploads de-dupe).
+- **Multi-account & aggregate** — keep an account per broker, then switch to
+  **All accounts** for a combined dashboard, score, calendar, reports, and log.
 - **Trade matching** — groups executions into closed round-trips, handling split
   entries/exits, shorts, and position flips (overshoot-zero splitting).
 - **Statistical engine** — Net P&L, Win Rate, Profit Factor, Expectancy, Max
@@ -86,7 +90,8 @@ existing `dist/` build.)
 npm test
 ```
 
-174 tests across the CSV tokenizer, tolerant date parser, broker detection,
+181 tests across the CSV tokenizer, tolerant date parser, broker detection,
+execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics
 breakdowns (incl. winners-vs-losers, R-multiple, and the weekday×hour heatmap),

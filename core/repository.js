@@ -190,6 +190,17 @@ export class Repository {
       .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
   }
 
+  /** All closed trades across every account the user owns, oldest-first. */
+  listAllTrades(userId) {
+    this.assertUser(userId);
+    const owned = new Set(
+      [...this.accounts.values()].filter((a) => a.userId === userId).map((a) => a.id)
+    );
+    return [...this.trades.values()]
+      .filter((t) => owned.has(t.accountId))
+      .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+  }
+
   getTrade(userId, tradeId) {
     const trade = this.trades.get(tradeId);
     if (!trade) throw new RepoError('trade not found', 404);

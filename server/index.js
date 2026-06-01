@@ -53,6 +53,19 @@ export function createApp(repo = new Repository()) {
     }
   };
 
+  // Resolve a read scope: a single account (RLS-gated) or the special 'all'
+  // pseudo-account that aggregates every account the user owns. Returns the
+  // trade set plus the starting balance to baseline equity/score against.
+  function scopeTrades(userId, accountId) {
+    if (accountId === 'all') {
+      const accounts = repo.listAccounts(userId);
+      const startingBalance = accounts.reduce((s, a) => s + (a.startingBalance || 0), 0);
+      return { trades: repo.listAllTrades(userId), startingBalance, aggregate: true };
+    }
+    const account = repo.getAccount(userId, accountId); // RLS gate
+    return { trades: repo.listTrades(userId, accountId), startingBalance: account.startingBalance, aggregate: false };
+  }
+
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
   // --- auth routes -------------------------------------------------------
@@ -159,7 +172,7 @@ export function createApp(repo = new Repository()) {
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
     }
-    const trades = repo.listTrades(req.userId, accountId);
+    const { trades } = scopeTrades(req.userId, accountId);
     res.json({ trades: filterTrades(trades, { symbol, side, tag, outcome, from, to }) });
   }));
 
@@ -178,17 +191,14 @@ export function createApp(repo = new Repository()) {
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
     }
-    const account = repo.getAccount(req.userId, accountId);
     const basis = normalizeBasis(req.query.basis);
-    const trades = projectBasis(
-      filterTrades(repo.listTrades(req.userId, accountId), { from, to }),
-      basis
-    );
+    const { trades: all, startingBalance } = scopeTrades(req.userId, accountId);
+    const trades = projectBasis(filterTrades(all, { from, to }), basis);
     res.json({
-      metrics: computeMetrics(trades, { startingBalance: account.startingBalance }),
-      equityCurve: equityCurve(trades, account.startingBalance),
-      drawdownCurve: drawdownSeries(trades, account.startingBalance),
-      score: computeScore(trades, { startingBalance: account.startingBalance }),
+      metrics: computeMetrics(trades, { startingBalance }),
+      equityCurve: equityCurve(trades, startingBalance),
+      drawdownCurve: drawdownSeries(trades, startingBalance),
+      score: computeScore(trades, { startingBalance }),
     });
   }));
 
@@ -197,10 +207,11 @@ export function createApp(repo = new Repository()) {
     const now = new Date();
     const year = parseInt(req.query.year, 10) || now.getFullYear();
     const month = parseInt(req.query.month, 10) || now.getMonth() + 1;
-    const trades = projectBasis(repo.listTrades(req.userId, accountId), normalizeBasis(req.query.basis));
+    const { trades: all, aggregate } = scopeTrades(req.userId, accountId);
+    const trades = projectBasis(all, normalizeBasis(req.query.basis));
     res.json({
       calendar: buildMonthlyCalendar(trades, year, month),
-      notedDays: repo.listNotedDays(req.userId, accountId),
+      notedDays: aggregate ? [] : repo.listNotedDays(req.userId, accountId),
     });
   }));
 
@@ -208,7 +219,8 @@ export function createApp(repo = new Repository()) {
   app.get('/api/year', auth, wrap((req, res) => {
     const { accountId } = req.query;
     const year = parseInt(req.query.year, 10) || new Date().getFullYear();
-    const trades = projectBasis(repo.listTrades(req.userId, accountId), normalizeBasis(req.query.basis));
+    const { trades: all } = scopeTrades(req.userId, accountId);
+    const trades = projectBasis(all, normalizeBasis(req.query.basis));
     res.json({ heatmap: buildYearHeatmap(trades, year) });
   }));
 
@@ -247,10 +259,8 @@ export function createApp(repo = new Repository()) {
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
     }
-    const trades = projectBasis(
-      filterTrades(repo.listTrades(req.userId, accountId), { from, to }), // RLS gate
-      normalizeBasis(req.query.basis)
-    );
+    const { trades: all } = scopeTrades(req.userId, accountId);
+    const trades = projectBasis(filterTrades(all, { from, to }), normalizeBasis(req.query.basis));
     res.json({ analytics: buildAnalytics(trades) });
   }));
 
