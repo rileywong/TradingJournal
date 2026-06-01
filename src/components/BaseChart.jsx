@@ -18,14 +18,20 @@ export const CHART_TOKENS = {
  *
  *   makeSeries(chart) → series   // which series type + colors to add (stable ref)
  *   mapPoint(datum)   → { time, value }   // datum → chart point (stable ref)
+ *   renderTooltip(datum) → htmlString  // optional; crosshair tooltip (may change)
  *
  * `makeSeries` and `mapPoint` MUST be stable (module-scope) so the chart isn't
- * torn down and rebuilt on every render.
+ * torn down and rebuilt on every render. `renderTooltip` is read through a ref,
+ * so it may change freely.
  */
-export default function BaseChart({ data, makeSeries, mapPoint, height = 240, emptyText }) {
+export default function BaseChart({ data, makeSeries, mapPoint, height = 240, emptyText, renderTooltip }) {
   const containerRef = useRef(null);
+  const tooltipRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
+  const datumByTime = useRef(new Map());
+  const renderTooltipRef = useRef(renderTooltip);
+  renderTooltipRef.current = renderTooltip;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -46,6 +52,34 @@ export default function BaseChart({ data, makeSeries, mapPoint, height = 240, em
     chartRef.current = chart;
     seriesRef.current = series;
 
+    // Custom crosshair tooltip (rendered into tooltipRef when renderTooltip set).
+    const onMove = (param) => {
+      const tip = tooltipRef.current;
+      const render = renderTooltipRef.current;
+      if (!tip) return;
+      if (!render || !param.time || !param.point || param.point.x < 0 || param.point.y < 0) {
+        tip.style.display = 'none';
+        return;
+      }
+      const datum = datumByTime.current.get(param.time);
+      const html = datum ? render(datum) : '';
+      if (!html) {
+        tip.style.display = 'none';
+        return;
+      }
+      tip.innerHTML = html;
+      tip.style.display = 'block';
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+      let left = param.point.x + 14;
+      if (left + w > el.clientWidth) left = param.point.x - w - 14;
+      let top = param.point.y + 14;
+      if (top + h > el.clientHeight) top = param.point.y - h - 14;
+      tip.style.left = `${Math.max(4, left)}px`;
+      tip.style.top = `${Math.max(4, top)}px`;
+    };
+    chart.subscribeCrosshairMove(onMove);
+
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect?.width;
       if (w) chart.applyOptions({ width: Math.floor(w) });
@@ -54,6 +88,7 @@ export default function BaseChart({ data, makeSeries, mapPoint, height = 240, em
 
     return () => {
       ro.disconnect();
+      chart.unsubscribeCrosshairMove(onMove);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -62,7 +97,19 @@ export default function BaseChart({ data, makeSeries, mapPoint, height = 240, em
 
   useEffect(() => {
     if (!seriesRef.current) return;
-    seriesRef.current.setData(toAscendingUnique(data, mapPoint));
+    // Normalize to ascending-unique time, keeping each original datum keyed by
+    // its final time so the tooltip can look it up on crosshair move.
+    const map = new Map();
+    let last = -Infinity;
+    const points = (Array.isArray(data) ? data : []).map((p) => {
+      const { time, value } = mapPoint(p);
+      const t = time <= last ? last + 1 : time;
+      last = t;
+      map.set(t, p);
+      return { time: t, value };
+    });
+    datumByTime.current = map;
+    seriesRef.current.setData(points);
     chartRef.current?.timeScale().fitContent();
   }, [data, mapPoint]);
 
@@ -71,23 +118,8 @@ export default function BaseChart({ data, makeSeries, mapPoint, height = 240, em
   return (
     <div className="day-chart">
       <div ref={containerRef} className="day-chart-canvas" style={{ height }} />
+      <div ref={tooltipRef} className="chart-tooltip" style={{ display: 'none' }} />
       {!hasData && <div className="day-chart-empty">{emptyText}</div>}
     </div>
   );
-}
-
-/**
- * lightweight-charts requires strictly-ascending, unique time values; points
- * that collide (e.g. trades closing in the same second) are nudged forward a
- * second while preserving order. Returns only `{ time, value }`.
- */
-function toAscendingUnique(points, mapPoint) {
-  if (!Array.isArray(points)) return [];
-  let last = -Infinity;
-  return points.map((p) => {
-    const { time, value } = mapPoint(p);
-    const t = time <= last ? last + 1 : time;
-    last = t;
-    return { time: t, value };
-  });
 }

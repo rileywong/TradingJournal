@@ -374,3 +374,12 @@ tbody tr:hover { background: var(--surface-2); }
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   color: var(--muted); font-size: 13px;
 }
+.chart-tooltip {
+  position: absolute; z-index: 20; pointer-events: none; max-width: 240px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(16,24,40,0.16); padding: 8px 10px; font-size: 12px; color: var(--text);
+}
+.chart-tooltip .ct-head { display: flex; gap: 10px; justify-content: space-between; align-items: baseline; }
+.chart-tooltip .ct-head strong { font-size: 13px; }
+.chart-tooltip .ct-sub { color: var(--muted); margin-top: 2px; }
+.chart-tooltip .ct-note { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); color: var(--text); white-space: pre-wrap; }

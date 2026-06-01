@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { LineStyle } from 'lightweight-charts';
 import BaseChart, { CHART_TOKENS } from './BaseChart.jsx';
 
@@ -26,14 +26,37 @@ const makeSeries = (chart) => {
   return series;
 };
 
-// `cumulative` points already carry unix-second `time` + `value`.
+// `cumulative` points already carry unix-second `time` + `value` (+ tradeId/symbol).
 const mapPoint = (p) => ({ time: p.time, value: p.value });
+
+function fmtMoney(n) {
+  const v = Number(n) || 0;
+  const sign = v < 0 ? '-' : '';
+  return `${sign}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
 
 /**
  * Intraday cumulative-P&L chart for a single day. `data` is the `cumulative`
- * series from GET /api/day: [{ time: unixSeconds, value, symbol, tradeId }].
+ * series from GET /api/day; `trades` is that day's trades, used to enrich the
+ * crosshair tooltip with each trade's own P&L and journal note.
  */
-export default function DayChart({ data }) {
+export default function DayChart({ data, trades = [] }) {
+  const renderTooltip = useMemo(() => {
+    const byId = new Map(trades.map((t) => [t.id, t]));
+    return (datum) => {
+      const t = datum.tradeId ? byId.get(datum.tradeId) : null;
+      const cumCls = datum.value >= 0 ? 'pos' : 'neg';
+      let html = `<div class="ct-head"><strong>${esc(datum.symbol || '')}</strong>`
+        + `<span class="${cumCls}">${fmtMoney(datum.value)} cum</span></div>`;
+      if (t) html += `<div class="ct-sub">Trade ${fmtMoney(t.netPnl)}</div>`;
+      if (t && t.note) html += `<div class="ct-note">${esc(t.note)}</div>`;
+      return html;
+    };
+  }, [trades]);
+
   return (
     <BaseChart
       data={data}
@@ -41,6 +64,7 @@ export default function DayChart({ data }) {
       mapPoint={mapPoint}
       height={240}
       emptyText="No closed trades to chart for this day."
+      renderTooltip={renderTooltip}
     />
   );
 }

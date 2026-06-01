@@ -99,7 +99,7 @@ export default function DayDetail({ day, loading, onClose, onTag, onRisk, onTrad
 
             <div className="section-title" style={{ marginTop: 22 }}>Cumulative P&amp;L</div>
             <div className="card" style={{ padding: 14 }}>
-              <DayChart data={day.cumulative} />
+              <DayChart data={day.cumulative} trades={day.trades} />
             </div>
 
             <div className="section-title">Journal Note</div>
