@@ -1,6 +1,6 @@
 // Barrel exports for the shared core engine.
 export { parseCsv, parseCsvRows } from './csv.js';
-export { parseDate } from './dates.js';
+export { parseDate, dayKey } from './dates.js';
 export {
   parseExecutions,
   detectBroker,

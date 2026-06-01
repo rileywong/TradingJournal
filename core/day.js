@@ -3,18 +3,10 @@
 // so the daily snapshot is computed identically to the all-time snapshot.
 
 import { computeMetrics } from './metrics.js';
+import { dayKey } from './dates.js';
 
 function round2(n) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
-}
-
-/** Local YYYY-MM-DD key for a trade's close time (matches calendar.js). */
-function dayKey(iso) {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

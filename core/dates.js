@@ -8,6 +8,21 @@ const MONTHS = {
 };
 
 /**
+ * Local YYYY-MM-DD key for an ISO timestamp — the canonical calendar-day bucket
+ * used by the calendar grid, day drill-down, and trade-log date filter. Keeping
+ * a single definition ensures those surfaces always reconcile.
+ * @param {string} iso
+ * @returns {string}
+ */
+export function dayKey(iso) {
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * @param {string} raw
  * @returns {string|null} ISO 8601 string, or null if unparseable
  */

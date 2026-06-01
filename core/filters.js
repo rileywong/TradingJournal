@@ -2,14 +2,7 @@
 // (GET /api/trades query params) and the React trade log, so server and client
 // always agree on what a filter means.
 
-/** Local YYYY-MM-DD key for a trade's close time (matches calendar.js). */
-function dayKey(iso) {
-  const d = new Date(iso);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
+import { dayKey } from './dates.js';
 
 /**
  * @param {object[]} trades
