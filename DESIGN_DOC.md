@@ -40,22 +40,33 @@ TradeJournal/
 │  ├─ dates.js               # Tolerant multi-format date parser
 │  ├─ parser.js              # Broker detection + execution normalization
 │  ├─ matcher.js             # Execution → closed Trade matching engine
-│  ├─ metrics.js             # Net P&L, Win%, Profit Factor, Expectancy, Max DD
+│  ├─ metrics.js             # Net P&L, Win%, PF, Expectancy, Max DD, drawdown series
 │  ├─ calendar.js            # Daily / monthly P&L aggregation
+│  ├─ day.js                 # Per-day stats, trade list, intraday P&L series
+│  ├─ analytics.js           # Breakdowns (symbol/side/weekday/hour/tag), streaks
+│  ├─ score.js               # Composite 0–100 Trade Score + grade
+│  ├─ filters.js             # Shared trade-log filter predicate
 │  ├─ auth.js                # HMAC token sign/verify + password hashing
-│  ├─ repository.js          # In-memory RLS-scoped data adapter
+│  ├─ repository.js          # In-memory RLS-scoped adapter (trades, notes, tags)
 │  └─ index.js               # Barrel exports
 ├─ server/
 │  └─ index.js               # Express API (auth + accounts + import + analytics)
 ├─ src/                       # React frontend
 │  ├─ main.jsx
-│  ├─ App.jsx
+│  ├─ App.jsx                # Dashboard / Reports tabs + day drill-down wiring
 │  ├─ api.js                 # fetch wrapper + token storage
 │  ├─ styles.css             # Light-theme design tokens
 │  └─ components/
 │     ├─ Auth.jsx
+│     ├─ ScoreCard.jsx        # SVG ring gauge + weighted component bars
 │     ├─ MetricsGrid.jsx
-│     ├─ PnlCalendar.jsx
+│     ├─ EquityChart.jsx      # lightweight-charts equity area series
+│     ├─ DrawdownChart.jsx    # underwater drawdown area series
+│     ├─ PnlCalendar.jsx      # clickable days + journal-note dots
+│     ├─ DayDetail.jsx        # day drill-down panel (stats + chart + note + log)
+│     ├─ DayChart.jsx         # intraday cumulative-P&L baseline series
+│     ├─ Reports.jsx          # breakdown tables + drawdown chart
+│     ├─ TradeLog.jsx         # filter bar wrapping the trade table
 │     ├─ TradesTable.jsx
 │     └─ ImportPanel.jsx
 ├─ samples/                   # Example broker exports for manual testing
@@ -68,7 +79,13 @@ TradeJournal/
    ├─ matcher.test.js
    ├─ metrics.test.js
    ├─ calendar.test.js
-   └─ integration.test.js     # Full import → state-transition flow
+   ├─ day.test.js
+   ├─ analytics.test.js
+   ├─ score.test.js
+   ├─ filters.test.js
+   ├─ notes.test.js
+   ├─ samples.test.js
+   └─ integration.test.js     # Full import → state-transition flow + endpoints
 ```
 
 ---
@@ -194,9 +211,30 @@ App
 ```
 
 A successful **import** (`POST /api/import`) invalidates and re-fetches
-`metrics`, `trades`, and `calendar` in one pass, so the snapshot grid, trade log,
-and calendar update atomically — the core state-transition guarantee verified in
+`metrics` (which now also carries `equityCurve`, `drawdownCurve`, and the
+composite `score`), `trades`, `calendar` (with `notedDays`), and `analytics` in
+one pass, so the snapshot grid, score gauge, charts, trade log, calendar, and
+reports update atomically — the core state-transition guarantee verified in
 `tests/integration.test.js`.
+
+### API surface
+
+| Method & path            | Purpose                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| `POST /api/auth/register`| Create user → token                                           |
+| `POST /api/auth/login`   | Authenticate → token                                          |
+| `GET  /api/accounts`     | List the caller's accounts                                    |
+| `POST /api/accounts`     | Create an account                                             |
+| `POST /api/import`       | Import a brokerage CSV (RLS-gated)                            |
+| `GET  /api/trades`       | Trade log; optional `symbol/side/tag/outcome/from/to` filters |
+| `PATCH /api/trades/:id`  | Update tags (durable across re-import, de-duplicated)         |
+| `GET  /api/metrics`      | Snapshot + `equityCurve` + `drawdownCurve` + `score`          |
+| `GET  /api/calendar`     | Monthly P&L grid + `notedDays`                                 |
+| `GET  /api/day`          | Daily stats + that day's trades + intraday curve + note       |
+| `PUT  /api/day/note`     | Upsert a day's journal note (empty clears)                    |
+| `GET  /api/analytics`    | Breakdowns (symbol/side/weekday/hour/tag), streaks, hold time |
+
+Every data route is RLS-gated through the owning `user → account` chain.
 
 ---
 
@@ -215,10 +253,33 @@ and calendar update atomically — the core state-transition guarantee verified 
 
 ---
 
-## 8. Execution Plan Status
+## 8. Composite Trade Score
+
+A single 0–100 number summarizing trading quality, blending five normalized
+sub-scores with fixed weights (see `core/score.js`):
+
+| Component         | Weight | Mapping (0→100)                                  |
+| ----------------- | ------ | ----------------------------------------------- |
+| Win Rate          | 0.20   | `winRate / 0.60` (≥60% → 100)                    |
+| Profit Factor     | 0.25   | `(PF − 1) × 100` (1.0 → 0, ≥2.0 → 100; ∞ → 100)  |
+| Win/Loss Ratio    | 0.20   | `avgWin/avgLoss / 2 × 100` (no losses → 100)     |
+| Drawdown Control  | 0.20   | `1 − ddPct/0.30` (0% → 100, ≥30% → 0)            |
+| Consistency       | 0.15   | `1 − bestDayShare` of total positive daily P&L   |
+
+Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F`; 0 trades
+→ `N/A`. The weighted breakdown is returned so the UI can show contributions.
+
+---
+
+## 9. Execution Plan Status
 
 1. ✅ `DESIGN_DOC.md`
-2. ⏳ Scaffold + dependencies
-3. ⏳ Core engine (csv, parser, matcher, metrics, calendar) + tests
-4. ⏳ Express API + integration tests
-5. ⏳ Light-theme React dashboard
+2. ✅ Scaffold + dependencies
+3. ✅ Core engine (csv, parser, matcher, metrics, calendar) + tests
+4. ✅ Express API + integration tests
+5. ✅ Light-theme React dashboard
+6. ✅ Day drill-down (daily stats, intraday chart, trade list)
+7. ✅ Reports (breakdowns, streaks, hold time, drawdown chart)
+8. ✅ Daily journal notes (persistent, per-day)
+9. ✅ Composite Trade Score
+10. ✅ Trade-log filtering + durable custom tags

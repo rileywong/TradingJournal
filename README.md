@@ -16,8 +16,20 @@ institutional-grade performance metrics on a professional dashboard.
   entries/exits, shorts, and position flips (overshoot-zero splitting).
 - **Statistical engine** — Net P&L, Win Rate, Profit Factor, Expectancy, Max
   Drawdown, equity curve, avg win/loss.
-- **Light-theme dashboard** — metrics snapshot grid, monthly P&L calendar,
-  sortable trade log with interactive tags.
+- **Trade Score** — a composite 0–100 grade (à la TradeZella's Zella Score)
+  blending win rate, profit factor, win/loss ratio, drawdown control, and
+  consistency, with a weighted breakdown.
+- **Day drill-down** — click any calendar day for a TradeZella-style daily
+  snapshot: stats, an intraday cumulative-P&L chart, that day's trades, and a
+  persistent journal note (notes survive re-imports and show as calendar dots).
+- **Reports** — performance breakdowns by symbol / side / day-of-week / hour /
+  tag, win/loss streaks, hold-time analysis, and an underwater drawdown chart.
+- **Charts** — equity curve, intraday P&L, and drawdown rendered with
+  [lightweight-charts](https://github.com/tradingview/lightweight-charts).
+- **Light-theme dashboard** — score gauge, metrics snapshot grid, monthly P&L
+  calendar, and a filterable, sortable trade log (filter by symbol / side /
+  outcome / tag / date) with interactive custom tags that persist across
+  re-imports.
 
 ## Stack
 
@@ -62,10 +74,15 @@ existing `dist/` build.)
 npm test
 ```
 
-72 tests across the CSV tokenizer, tolerant date parser, broker detection,
+129 tests across the CSV tokenizer, tolerant date parser, broker detection,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
-edge cases), calendar aggregation, and full API integration (auth, RLS
-isolation, import→state-transition, re-import idempotency, tagging).
+edge cases, drawdown series), calendar & day aggregation, analytics breakdowns,
+the composite Trade Score, trade filtering, journal-note persistence, and full
+API integration (auth, RLS isolation, import→state-transition, re-import
+idempotency, durable tagging, day/analytics/notes/filter endpoints).
+
+A `SessionStart` hook (`.claude/hooks/session-start.sh`) installs dependencies
+automatically so the suite is ready to run in Claude Code on the web sessions.
 
 ## Layout
 
