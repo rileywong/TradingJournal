@@ -229,6 +229,26 @@ tbody tr:hover { background: var(--surface-2); }
 .modal h2 { margin: 0 0 16px; font-size: 18px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
+/* ── Tabs ─────────────────────────────────────────────────────────────── */
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin: 4px 0 4px; }
+.tab {
+  background: transparent; border: none; color: var(--muted); font-weight: 700;
+  font-size: 14px; padding: 10px 16px; cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── Reports ──────────────────────────────────────────────────────────── */
+.reports-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;
+}
+.report-card { padding: 16px 18px; }
+.report-card h3 { margin: 0 0 12px; font-size: 15px; }
+.report-table { width: 100%; }
+.report-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 6px 8px; }
+.report-table td { padding: 7px 8px; border-top: 1px solid var(--border); font-size: 13px; }
+
 /* ── Day drill-down panel ─────────────────────────────────────────────── */
 .modal.day-detail {
   max-width: 1040px;

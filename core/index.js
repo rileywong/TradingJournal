@@ -17,6 +17,18 @@ export {
   isValidDateKey,
 } from './day.js';
 export {
+  summarize,
+  groupBy,
+  bySymbol,
+  bySide,
+  byDayOfWeek,
+  byHourOfDay,
+  byTag,
+  holdTimeStats,
+  streaks,
+  buildAnalytics,
+} from './analytics.js';
+export {
   hashPassword,
   verifyPassword,
   signToken,

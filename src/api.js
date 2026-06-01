@@ -56,4 +56,5 @@ export const api = {
     request(`/calendar?accountId=${accountId}&year=${year}&month=${month}`),
   getDay: (accountId, date) =>
     request(`/day?accountId=${accountId}&date=${date}`),
+  getAnalytics: (accountId) => request(`/analytics?accountId=${accountId}`),
 };

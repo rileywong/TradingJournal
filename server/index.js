@@ -19,6 +19,7 @@ import {
   dailyCumulativePnl,
   isValidDateKey,
 } from '../core/day.js';
+import { buildAnalytics } from '../core/analytics.js';
 
 export function createApp(repo = new Repository()) {
   const app = express();
@@ -158,6 +159,14 @@ export function createApp(repo = new Repository()) {
       trades: tradesForDay(trades, date),
       cumulative: dailyCumulativePnl(trades, date),
     });
+  }));
+
+  // Reports: performance breakdowns by symbol / side / weekday / hour / tag,
+  // plus hold-time and streak summaries.
+  app.get('/api/analytics', auth, wrap((req, res) => {
+    const { accountId } = req.query;
+    const trades = repo.listTrades(req.userId, accountId); // RLS gate
+    res.json({ analytics: buildAnalytics(trades) });
   }));
 
   // Serve the built frontend (single-process production/preview mode) when a

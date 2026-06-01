@@ -230,6 +230,38 @@ describe('day drill-down', () => {
   });
 });
 
+describe('analytics report', () => {
+  it('returns performance breakdowns for the account\'s trades', async () => {
+    const user = await registerUser('reports@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const res = await request(app).get(`/api/analytics?accountId=${acct.id}`).set(h);
+    expect(res.status).toBe(200);
+    const a = res.body.analytics;
+    expect(a.overall.netPnl).toBe(447);
+    // AAPL long +298, TSLA short +149
+    const symbols = Object.fromEntries(a.bySymbol.map((s) => [s.key, s.netPnl]));
+    expect(symbols.AAPL).toBe(298);
+    expect(symbols.TSLA).toBe(149);
+    const sides = Object.fromEntries(a.bySide.map((s) => [s.key, s.netPnl]));
+    expect(sides.LONG).toBe(298);
+    expect(sides.SHORT).toBe(149);
+    expect(a.byTag[0].key).toBe('Untagged');
+  });
+
+  it('enforces RLS on the analytics endpoint', async () => {
+    const alice = await registerUser('alice4@example.com');
+    const bob = await registerUser('bob4@example.com');
+    const aliceAcct = await createAccount(alice.token);
+    const res = await request(app)
+      .get(`/api/analytics?accountId=${aliceAcct.id}`)
+      .set('Authorization', `Bearer ${bob.token}`);
+    expect(res.status).toBe(404);
+  });
+});
+
 describe('trade tagging', () => {
   it('persists interactive tags on a trade', async () => {
     const user = await registerUser('tags@example.com');

@@ -6,12 +6,17 @@ import PnlCalendar from './components/PnlCalendar.jsx';
 import TradesTable from './components/TradesTable.jsx';
 import ImportPanel from './components/ImportPanel.jsx';
 import DayDetail from './components/DayDetail.jsx';
+import EquityChart from './components/EquityChart.jsx';
+import Reports from './components/Reports.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
   const [accounts, setAccounts] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  const [equityCurve, setEquityCurve] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [view, setView] = useState('dashboard');
   const [trades, setTrades] = useState([]);
   const [calendar, setCalendar] = useState(null);
   const [cursor, setCursor] = useState(() => {
@@ -36,14 +41,17 @@ export default function App() {
   // The core state-transition: refresh metrics + trades + calendar together.
   const refreshDashboard = useCallback(async (accountId, cur) => {
     if (!accountId) return;
-    const [m, t, c] = await Promise.all([
+    const [m, t, c, a] = await Promise.all([
       api.getMetrics(accountId),
       api.getTrades(accountId),
       api.getCalendar(accountId, cur.year, cur.month),
+      api.getAnalytics(accountId),
     ]);
     setMetrics(m.metrics);
+    setEquityCurve(m.equityCurve || []);
     setTrades(t.trades);
     setCalendar(c.calendar);
+    setAnalytics(a.analytics);
   }, []);
 
   useEffect(() => {
@@ -63,6 +71,8 @@ export default function App() {
     setAccounts([]);
     setActiveId(null);
     setMetrics(null);
+    setEquityCurve([]);
+    setAnalytics(null);
     setTrades([]);
     setCalendar(null);
     setSelectedDate(null);
@@ -137,32 +147,58 @@ export default function App() {
           <div className="empty-state">Create an account to begin tracking trades.</div>
         ) : (
           <>
-            <div className="section-title">Performance Snapshot</div>
-            <MetricsGrid metrics={metrics} />
-
-            <div className="section-title">This Month &amp; Import</div>
-            <div className="row">
-              <PnlCalendar
-                calendar={calendar}
-                onPrev={() => shiftMonth(-1)}
-                onNext={() => shiftMonth(1)}
-                onSelectDay={openDay}
-                selectedDate={selectedDate}
-              />
-              <div className="card" style={{ padding: 18 }}>
-                <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
-                <ImportPanel
-                  accountId={activeId}
-                  onImported={() => {
-                    refreshDashboard(activeId, cursor);
-                    if (selectedDate) openDay(selectedDate);
-                  }}
-                />
-              </div>
+            <div className="tabs">
+              <button
+                className={`tab ${view === 'dashboard' ? 'active' : ''}`}
+                onClick={() => setView('dashboard')}
+              >
+                Dashboard
+              </button>
+              <button
+                className={`tab ${view === 'reports' ? 'active' : ''}`}
+                onClick={() => setView('reports')}
+              >
+                Reports
+              </button>
             </div>
 
-            <div className="section-title">Trade Log</div>
-            <TradesTable trades={trades} onTag={onTag} />
+            {view === 'dashboard' ? (
+              <>
+                <div className="section-title">Performance Snapshot</div>
+                <MetricsGrid metrics={metrics} />
+
+                <div className="section-title">Equity Curve</div>
+                <div className="card" style={{ padding: 14 }}>
+                  <EquityChart data={equityCurve} />
+                </div>
+
+                <div className="section-title">This Month &amp; Import</div>
+                <div className="row">
+                  <PnlCalendar
+                    calendar={calendar}
+                    onPrev={() => shiftMonth(-1)}
+                    onNext={() => shiftMonth(1)}
+                    onSelectDay={openDay}
+                    selectedDate={selectedDate}
+                  />
+                  <div className="card" style={{ padding: 18 }}>
+                    <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
+                    <ImportPanel
+                      accountId={activeId}
+                      onImported={() => {
+                        refreshDashboard(activeId, cursor);
+                        if (selectedDate) openDay(selectedDate);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="section-title">Trade Log</div>
+                <TradesTable trades={trades} onTag={onTag} />
+              </>
+            ) : (
+              <Reports analytics={analytics} />
+            )}
           </>
         )}
       </div>
