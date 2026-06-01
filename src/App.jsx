@@ -90,13 +90,24 @@ export default function App() {
     setDayDetail(null);
   };
 
-  const onTag = async (id, tags) => {
-    const { trade } = await api.tagTrade(id, tags);
+  // Apply an updated trade to both the main log and any open day drill-down.
+  const applyTradeUpdate = (trade) => {
     setTrades((prev) => prev.map((t) => (t.id === trade.id ? trade : t)));
-    // Keep an open day drill-down in sync with the tag edit.
     setDayDetail((prev) =>
       prev ? { ...prev, trades: prev.trades.map((t) => (t.id === trade.id ? trade : t)) } : prev
     );
+  };
+
+  const onTag = async (id, tags) => {
+    const { trade } = await api.tagTrade(id, tags);
+    applyTradeUpdate(trade);
+  };
+
+  const onRisk = async (id, riskAmount) => {
+    const { trade } = await api.setTradeRisk(id, riskAmount);
+    applyTradeUpdate(trade);
+    // R-multiple stats depend on risk; refresh analytics in the background.
+    if (activeId) api.getAnalytics(activeId).then((a) => setAnalytics(a.analytics)).catch(() => {});
   };
 
   const openDay = useCallback(async (date) => {
@@ -238,7 +249,7 @@ export default function App() {
                 </div>
 
                 <div className="section-title">Trade Log</div>
-                <TradeLog trades={trades} onTag={onTag} />
+                <TradeLog trades={trades} onTag={onTag} onRisk={onRisk} />
               </>
             ) : (
               <Reports analytics={analytics} drawdownCurve={drawdownCurve} />
@@ -253,6 +264,7 @@ export default function App() {
           loading={dayLoading}
           onClose={closeDay}
           onTag={onTag}
+          onRisk={onRisk}
           onSaveNote={saveDayNote}
         />
       )}

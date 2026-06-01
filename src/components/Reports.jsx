@@ -74,6 +74,7 @@ export default function Reports({ analytics, drawdownCurve }) {
     return <div className="card"><div className="empty-state">No trades yet. Import a brokerage CSV to unlock reports.</div></div>;
   }
 
+  const r = analytics.rMultiple;
   const summary = [
     { label: 'Win Streak (max)', value: `${streaks.longestWin}` },
     { label: 'Loss Streak (max)', value: `${streaks.longestLoss}` },
@@ -89,6 +90,14 @@ export default function Reports({ analytics, drawdownCurve }) {
     { label: 'Avg Hold · Wins', value: fmtDuration(holdTime.avgWinMinutes) },
     { label: 'Avg Hold · Losses', value: fmtDuration(holdTime.avgLossMinutes) },
   ];
+
+  if (r && r.count > 0) {
+    summary.push(
+      { label: 'Expectancy (R)', value: <span className={r.expectancyR > 0 ? 'pos' : r.expectancyR < 0 ? 'neg' : ''}>{r.expectancyR.toFixed(2)}R</span> },
+      { label: 'Best / Worst R', value: <span><span className="pos">{r.bestR.toFixed(2)}</span> / <span className="neg">{r.worstR.toFixed(2)}</span></span> },
+      { label: 'Trades w/ Risk Set', value: `${r.count}` },
+    );
+  }
 
   return (
     <>

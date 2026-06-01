@@ -22,7 +22,7 @@ const EMPTY = { symbol: '', side: '', outcome: '', tag: '', from: '', to: '' };
  * core `filterTrades`, so it matches the server's GET /api/trades semantics
  * exactly without a round-trip.
  */
-export default function TradeLog({ trades, onTag }) {
+export default function TradeLog({ trades, onTag, onRisk }) {
   const [f, setF] = useState(EMPTY);
 
   const symbols = useMemo(() => distinctSymbols(trades), [trades]);
@@ -71,7 +71,7 @@ export default function TradeLog({ trades, onTag }) {
           Export CSV
         </button>
       </div>
-      <TradesTable trades={filtered} onTag={onTag} />
+      <TradesTable trades={filtered} onTag={onTag} onRisk={onRisk} />
     </div>
   );
 }

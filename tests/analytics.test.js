@@ -9,6 +9,8 @@ import {
   holdTimeStats,
   streaks,
   winLossComparison,
+  rMultiple,
+  rMultipleStats,
   buildAnalytics,
 } from '../core/analytics.js';
 
@@ -20,6 +22,7 @@ function trade(over = {}) {
     quantity: over.quantity ?? 100,
     netPnl: over.netPnl ?? 0,
     tags: over.tags || [],
+    riskAmount: over.riskAmount ?? 0,
     openedAt: over.openedAt || over.closedAt,
     closedAt: over.closedAt,
   };
@@ -176,6 +179,34 @@ describe('winLossComparison', () => {
 
   it('reports Infinity payoff with wins but no losses', () => {
     expect(winLossComparison([trade({ netPnl: 10 })]).payoffRatio).toBe(Infinity);
+  });
+});
+
+describe('rMultiple / rMultipleStats', () => {
+  it('computes R as netPnl / planned risk, null when no risk', () => {
+    expect(rMultiple({ netPnl: 200, riskAmount: 100 })).toBe(2);
+    expect(rMultiple({ netPnl: -50, riskAmount: 100 })).toBe(-0.5);
+    expect(rMultiple({ netPnl: 200, riskAmount: 0 })).toBeNull();
+    expect(rMultiple({ netPnl: 200 })).toBeNull();
+  });
+
+  it('summarizes only trades with a risk set', () => {
+    const s = rMultipleStats([
+      trade({ netPnl: 200, riskAmount: 100 }), // 2R
+      trade({ netPnl: -100, riskAmount: 100 }), // -1R
+      trade({ netPnl: 300, riskAmount: 100 }), // 3R
+      trade({ netPnl: 50 }), // no risk → excluded
+    ]);
+    expect(s.count).toBe(3);
+    expect(s.totalR).toBe(4);
+    expect(s.avgR).toBe(1.33);
+    expect(s.expectancyR).toBe(1.33);
+    expect(s.bestR).toBe(3);
+    expect(s.worstR).toBe(-1);
+  });
+
+  it('is total when no trade has risk', () => {
+    expect(rMultipleStats([trade({ netPnl: 10 })])).toMatchObject({ count: 0, avgR: 0 });
   });
 });
 

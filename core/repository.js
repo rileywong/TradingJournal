@@ -21,6 +21,7 @@ export class Repository {
     this.trades = new Map(); // id → trade
     this.dailyNotes = new Map(); // `${accountId}::${date}` → { note, updatedAt }
     this.tradeTags = new Map(); // `${accountId}::${signature}` → tags[] (durable)
+    this.tradeRisk = new Map(); // `${accountId}::${signature}` → riskAmount (durable)
   }
 
   /**
@@ -169,9 +170,12 @@ export class Repository {
       const id = trade.id || uuid();
       // Re-apply any tags previously attached to this trade signature so a
       // re-import doesn't wipe the user's annotations.
-      const stored = this.tradeTags.get(`${account.id}::${this.tradeSignature(trade)}`);
-      const tags = stored ? [...stored] : trade.tags || [];
-      this.trades.set(id, { ...trade, id, accountId: account.id, tags });
+      const sigKey = `${account.id}::${this.tradeSignature(trade)}`;
+      const storedTags = this.tradeTags.get(sigKey);
+      const tags = storedTags ? [...storedTags] : trade.tags || [];
+      const storedRisk = this.tradeRisk.get(sigKey);
+      const riskAmount = storedRisk !== undefined ? storedRisk : trade.riskAmount || 0;
+      this.trades.set(id, { ...trade, id, accountId: account.id, tags, riskAmount });
     }
     return { executions: executions.length, trades: trades.length };
   }
@@ -200,6 +204,21 @@ export class Repository {
     const key = `${trade.accountId}::${this.tradeSignature(trade)}`;
     if (clean.length === 0) this.tradeTags.delete(key);
     else this.tradeTags.set(key, [...clean]);
+    return trade;
+  }
+
+  /**
+   * Set a trade's planned risk (initial $ at risk), persisted durably by
+   * signature so it survives a re-import. A non-positive value clears it.
+   */
+  updateTradeRisk(userId, tradeId, riskAmount) {
+    const trade = this.getTrade(userId, tradeId);
+    const risk = Number(riskAmount);
+    const clean = Number.isFinite(risk) && risk > 0 ? Math.round(risk * 100) / 100 : 0;
+    trade.riskAmount = clean;
+    const key = `${trade.accountId}::${this.tradeSignature(trade)}`;
+    if (clean === 0) this.tradeRisk.delete(key);
+    else this.tradeRisk.set(key, clean);
     return trade;
   }
 

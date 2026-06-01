@@ -415,6 +415,31 @@ describe('trade tagging', () => {
     expect(aaplAfter.tags).toEqual(['Breakout']); // survived the re-import
   });
 
+  it('sets per-trade risk, exposes R-multiple stats, and survives re-import', async () => {
+    const user = await registerUser('risk@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    let trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aapl = trades.find((t) => t.symbol === 'AAPL'); // netPnl 298
+
+    const patch = await request(app)
+      .patch(`/api/trades/${aapl.id}`)
+      .set(h)
+      .send({ riskAmount: 149 });
+    expect(patch.body.trade.riskAmount).toBe(149);
+
+    // Analytics reflects R-multiple (298 / 149 = 2R)
+    const a = await request(app).get(`/api/analytics?accountId=${acct.id}`).set(h);
+    expect(a.body.analytics.rMultiple.count).toBe(1);
+    expect(a.body.analytics.rMultiple.avgR).toBe(2);
+
+    // Risk survives re-import (durable by signature)
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(trades.find((t) => t.symbol === 'AAPL').riskAmount).toBe(149);
+  });
+
   it('de-duplicates tags', async () => {
     const user = await registerUser('dupetags@example.com');
     const acct = await createAccount(user.token);

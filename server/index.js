@@ -138,8 +138,11 @@ export function createApp(repo = new Repository()) {
   }));
 
   app.patch('/api/trades/:id', auth, wrap((req, res) => {
-    const { tags } = req.body || {};
-    const trade = repo.updateTradeTags(req.userId, req.params.id, tags);
+    const { tags, riskAmount } = req.body || {};
+    let trade;
+    if (tags !== undefined) trade = repo.updateTradeTags(req.userId, req.params.id, tags);
+    if (riskAmount !== undefined) trade = repo.updateTradeRisk(req.userId, req.params.id, riskAmount);
+    if (!trade) trade = repo.getTrade(req.userId, req.params.id);
     res.json({ trade });
   }));
 

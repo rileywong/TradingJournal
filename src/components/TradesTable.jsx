@@ -21,14 +21,21 @@ const COLUMNS = [
   { key: 'exitPrice', label: 'Exit', num: true },
   { key: 'closedAt', label: 'Closed' },
   { key: 'netPnl', label: 'Net P&L', num: true },
+  { key: 'risk', label: 'Risk / R', num: true, sortable: false },
   { key: 'tags', label: 'Tags', sortable: false },
 ];
 
-export default function TradesTable({ trades, onTag }) {
+function rMultiple(t) {
+  const risk = Number(t.riskAmount);
+  return Number.isFinite(risk) && risk > 0 ? t.netPnl / risk : null;
+}
+
+export default function TradesTable({ trades, onTag, onRisk }) {
   const [sortKey, setSortKey] = useState('closedAt');
   const [sortDir, setSortDir] = useState('desc');
   const [adding, setAdding] = useState(null);
-  // Set when Escape cancels the tag input, so the resulting blur doesn't commit.
+  const [editingRisk, setEditingRisk] = useState(null);
+  // Set when Escape cancels an inline input, so the resulting blur doesn't commit.
   const cancelNextBlur = useRef(false);
 
   const sorted = useMemo(() => {
@@ -62,6 +69,14 @@ export default function TradesTable({ trades, onTag }) {
     if (!tag || trade.tags.includes(tag)) return;
     onTag(trade.id, [...trade.tags, tag]);
   };
+  const commitRisk = (trade, raw) => {
+    setEditingRisk(null);
+    const next = raw === '' ? 0 : Number(raw);
+    if (!Number.isFinite(next) || next < 0) return;
+    if (next === (trade.riskAmount || 0)) return;
+    if (onRisk) onRisk(trade.id, next);
+  };
+
   const removeTag = (trade, tag) => {
     onTag(trade.id, trade.tags.filter((t) => t !== tag));
   };
@@ -105,6 +120,41 @@ export default function TradesTable({ trades, onTag }) {
               <td className="muted">{fmtDate(t.closedAt)}</td>
               <td style={{ textAlign: 'right' }} className={t.netPnl > 0 ? 'pos' : t.netPnl < 0 ? 'neg' : ''}>
                 <strong>{fmtMoney(t.netPnl)}</strong>
+              </td>
+              <td style={{ textAlign: 'right' }}>
+                {editingRisk === t.id ? (
+                  <input
+                    autoFocus
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="risk-input"
+                    defaultValue={t.riskAmount || ''}
+                    placeholder="risk $"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                      else if (e.key === 'Escape') { cancelNextBlur.current = true; e.currentTarget.blur(); }
+                    }}
+                    onBlur={(e) => {
+                      if (cancelNextBlur.current) { cancelNextBlur.current = false; setEditingRisk(null); return; }
+                      commitRisk(t, e.target.value);
+                    }}
+                  />
+                ) : (
+                  <button className="risk-btn" onClick={() => setEditingRisk(t.id)} title="Set planned risk ($)">
+                    {(() => {
+                      const r = rMultiple(t);
+                      return r === null ? (
+                        <span className="muted">+ risk</span>
+                      ) : (
+                        <>
+                          <strong className={r > 0 ? 'pos' : r < 0 ? 'neg' : ''}>{r.toFixed(2)}R</strong>
+                          <span className="muted"> · ${t.riskAmount}</span>
+                        </>
+                      );
+                    })()}
+                  </button>
+                )}
               </td>
               <td>
                 <div className="tags">

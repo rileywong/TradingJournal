@@ -185,6 +185,35 @@ export function winLossComparison(trades) {
   return { winners, losers, payoffRatio };
 }
 
+/** R-multiple for a single trade (netPnl / planned risk), or null if no risk set. */
+export function rMultiple(trade) {
+  const risk = Number(trade.riskAmount);
+  if (!Number.isFinite(risk) || risk <= 0) return null;
+  return round2(trade.netPnl / risk);
+}
+
+/**
+ * R-multiple summary over the trades that have a planned risk set. `expectancyR`
+ * is the average R per trade — the expected reward in units of risk.
+ */
+export function rMultipleStats(trades) {
+  const withR = trades
+    .map((t) => rMultiple(t))
+    .filter((r) => r !== null);
+  if (withR.length === 0) {
+    return { count: 0, totalR: 0, avgR: 0, expectancyR: 0, bestR: 0, worstR: 0 };
+  }
+  const totalR = round2(withR.reduce((s, r) => s + r, 0));
+  return {
+    count: withR.length,
+    totalR,
+    avgR: round2(totalR / withR.length),
+    expectancyR: round2(totalR / withR.length),
+    bestR: round2(Math.max(...withR)),
+    worstR: round2(Math.min(...withR)),
+  };
+}
+
 /** Full analytics payload for the Reports view. */
 export function buildAnalytics(trades) {
   return {
@@ -197,5 +226,6 @@ export function buildAnalytics(trades) {
     byTag: byTag(trades),
     holdTime: holdTimeStats(trades),
     streaks: streaks(trades),
+    rMultiple: rMultipleStats(trades),
   };
 }

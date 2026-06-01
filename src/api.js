@@ -53,6 +53,7 @@ export const api = {
     request('/import', { method: 'POST', body: { accountId, csv, broker } }),
   getTrades: (accountId) => request(`/trades?accountId=${accountId}`),
   tagTrade: (id, tags) => request(`/trades/${id}`, { method: 'PATCH', body: { tags } }),
+  setTradeRisk: (id, riskAmount) => request(`/trades/${id}`, { method: 'PATCH', body: { riskAmount } }),
   getMetrics: (accountId) => request(`/metrics?accountId=${accountId}`),
   getCalendar: (accountId, year, month) =>
     request(`/calendar?accountId=${accountId}&year=${year}&month=${month}`),

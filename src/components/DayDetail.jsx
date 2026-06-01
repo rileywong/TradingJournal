@@ -37,7 +37,7 @@ function fmtLongDate(dateKey) {
  *   onTag:  (tradeId, tags[]) => void       // forwarded to the trade log
  *   onSaveNote: (date, note) => Promise     // persist the journal note
  */
-export default function DayDetail({ day, loading, onClose, onTag, onSaveNote }) {
+export default function DayDetail({ day, loading, onClose, onTag, onRisk, onSaveNote }) {
   const stats = day?.stats;
   const net = stats?.netPnl ?? 0;
   const netClass = net > 0 ? 'pos' : net < 0 ? 'neg' : 'muted';
@@ -113,7 +113,7 @@ export default function DayDetail({ day, loading, onClose, onTag, onSaveNote }) 
             <div className="section-title">
               Trades <span className="muted">({day.trades.length})</span>
             </div>
-            <TradesTable trades={day.trades} onTag={onTag} />
+            <TradesTable trades={day.trades} onTag={onTag} onRisk={onRisk} />
           </>
         )}
       </div>

@@ -32,6 +32,8 @@ export {
   holdTimeStats,
   streaks,
   winLossComparison,
+  rMultiple,
+  rMultipleStats,
   buildAnalytics,
 } from './analytics.js';
 export { tradesToCsv } from './export.js';
