@@ -118,6 +118,11 @@ export function createApp(repo = new Repository()) {
   // --- analytics ---------------------------------------------------------
   app.get('/api/trades', auth, wrap((req, res) => {
     const { accountId, symbol, side, tag, outcome, from, to } = req.query;
+    // Date-range bounds are compared lexically, so reject non-canonical keys
+    // rather than silently mis-filtering.
+    if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
+      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    }
     const trades = repo.listTrades(req.userId, accountId);
     res.json({ trades: filterTrades(trades, { symbol, side, tag, outcome, from, to }) });
   }));

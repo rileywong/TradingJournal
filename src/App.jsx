@@ -100,13 +100,21 @@ export default function App() {
 
   const openDay = useCallback(async (date) => {
     if (!activeId) return;
-    setSelectedDate(date);
+    setSelectedDate((prev) => {
+      // Switching to a different day: drop the previous day's stale detail so the
+      // panel header doesn't show the old date/P&L while the new day loads.
+      if (prev !== date) setDayDetail(null);
+      return date;
+    });
     setDayLoading(true);
     try {
       const detail = await api.getDay(activeId, date);
       setDayDetail(detail);
     } catch {
+      // Failed to load: fully close the drill-down (don't leave selectedDate
+      // dangling, which would auto-reopen on the next import).
       setDayDetail(null);
+      setSelectedDate(null);
     } finally {
       setDayLoading(false);
     }

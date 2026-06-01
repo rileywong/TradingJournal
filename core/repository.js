@@ -28,7 +28,15 @@ export class Repository {
    * so annotations like tags survive a re-import.
    */
   tradeSignature(trade) {
-    return [trade.symbol, trade.side, trade.openedAt, trade.closedAt, trade.quantity].join('|');
+    return [
+      trade.symbol,
+      trade.side,
+      trade.openedAt,
+      trade.closedAt,
+      trade.quantity,
+      trade.entryPrice,
+      trade.exitPrice,
+    ].join('|');
   }
 
   // --- users -------------------------------------------------------------

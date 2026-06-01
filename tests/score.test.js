@@ -59,6 +59,15 @@ describe('computeScore', () => {
     expect(s.score).toBeLessThan(40);
   });
 
+  it('gives a single profitable day a neutral (not zero) consistency score', () => {
+    const oneDay = [
+      trade(100, '2024-03-04T10:00:00'),
+      trade(80, '2024-03-04T11:00:00'),
+    ];
+    const c = computeScore(oneDay).components.find((x) => x.key === 'consistency').score;
+    expect(c).toBe(50); // not penalized to 0 for lack of history
+  });
+
   it('penalizes consistency when one day carries all the profit', () => {
     const concentrated = [
       trade(500, '2024-03-04T10:00:00'),

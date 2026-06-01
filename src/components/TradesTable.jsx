@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 
 const PRESET_TAGS = ['Breakout', 'Fading', 'Revenge Trade', 'Scalp', 'Swing', 'News'];
 
 function fmtMoney(n) {
-  const sign = n < 0 ? '-' : '';
-  return `${sign}$${Math.abs(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const v = Number(n) || 0;
+  const sign = v < 0 ? '-' : '';
+  return `${sign}$${Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -27,6 +28,8 @@ export default function TradesTable({ trades, onTag }) {
   const [sortKey, setSortKey] = useState('closedAt');
   const [sortDir, setSortDir] = useState('desc');
   const [adding, setAdding] = useState(null);
+  // Set when Escape cancels the tag input, so the resulting blur doesn't commit.
+  const cancelNextBlur = useRef(false);
 
   const sorted = useMemo(() => {
     const arr = [...trades];
@@ -51,9 +54,11 @@ export default function TradesTable({ trades, onTag }) {
     }
   };
 
-  const addTag = (trade, raw) => {
-    const tag = (raw || '').trim();
+  // Single commit path: both Enter and click-away blur the input, which commits
+  // here exactly once. Escape sets cancelNextBlur so its blur is a no-op.
+  const commitTag = (trade, raw) => {
     setAdding(null);
+    const tag = (raw || '').trim();
     if (!tag || trade.tags.includes(tag)) return;
     onTag(trade.id, [...trade.tags, tag]);
   };
@@ -116,10 +121,13 @@ export default function TradesTable({ trades, onTag }) {
                       className="tag-input"
                       placeholder="Tag or custom…"
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') addTag(t, e.target.value);
-                        else if (e.key === 'Escape') setAdding(null);
+                        if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                        else if (e.key === 'Escape') { cancelNextBlur.current = true; e.currentTarget.blur(); }
                       }}
-                      onBlur={(e) => addTag(t, e.target.value)}
+                      onBlur={(e) => {
+                        if (cancelNextBlur.current) { cancelNextBlur.current = false; setAdding(null); return; }
+                        commitTag(t, e.target.value);
+                      }}
                     />
                   ) : (
                     <button className="tag-add" onClick={() => setAdding(t.id)}>+ tag</button>

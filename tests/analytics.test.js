@@ -97,6 +97,15 @@ describe('byDayOfWeek / byHourOfDay', () => {
     expect(g.map((x) => x.key)).toEqual(['09:00', '14:00']);
     expect(g[0].hour).toBe(9);
   });
+
+  it('excludes trades whose closedAt is unparseable (no NaN bucket)', () => {
+    const g = byDayOfWeek([
+      trade({ netPnl: 50, closedAt: '2024-03-04T10:00:00' }), // Monday
+      trade({ netPnl: 10, closedAt: 'not-a-date' }),
+    ]);
+    expect(g.map((x) => x.key)).toEqual(['Monday']);
+    expect(byHourOfDay([trade({ netPnl: 10, closedAt: 'not-a-date' })])).toEqual([]);
+  });
 });
 
 describe('byTag', () => {

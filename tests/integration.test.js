@@ -255,6 +255,14 @@ describe('trade log filtering', () => {
     const wins = await request(app).get(`/api/trades?accountId=${acct.id}&outcome=win`).set(h);
     expect(wins.body.trades).toHaveLength(2); // both round-trips are profitable
   });
+
+  it('rejects a non-canonical from/to date', async () => {
+    const user = await registerUser('filterdate@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const res = await request(app).get(`/api/trades?accountId=${acct.id}&from=2024-3-5`).set(h);
+    expect(res.status).toBe(400);
+  });
 });
 
 describe('daily journal notes', () => {

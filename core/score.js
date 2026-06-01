@@ -56,8 +56,12 @@ function consistencyScore(trades) {
   const positive = daily.map((d) => d.pnl).filter((p) => p > 0);
   const totalPositive = positive.reduce((s, p) => s + p, 0);
   if (totalPositive <= 0 || positive.length === 0) return 0;
+  // With only one profitable day there isn't enough history to judge
+  // consistency, so return a neutral score rather than penalizing a young
+  // account to 0 (which would unfairly drag down its composite score).
+  if (positive.length === 1) return 50;
   const best = Math.max(...positive);
-  // bestShare in (0,1]; 1 (single profitable day) → 0, well-spread → 100.
+  // bestShare in (0,1]; →1 (one day carries it) → 0, well-spread → 100.
   const bestShare = best / totalPositive;
   return clamp((1 - bestShare) * 100);
 }

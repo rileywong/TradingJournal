@@ -56,7 +56,10 @@ export function groupBy(trades, keyFn) {
   const buckets = new Map();
   for (const t of trades) {
     const key = keyFn(t);
+    // Skip null/undefined and NaN (e.g. an unparseable closedAt → getDay()=NaN),
+    // which would otherwise form a bogus bucket with an undefined label.
     if (key === null || key === undefined) continue;
+    if (typeof key === 'number' && Number.isNaN(key)) continue;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(t);
   }
