@@ -1,0 +1,192 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import request from 'supertest';
+import { createApp } from '../server/index.js';
+
+let app;
+
+const TOS_CSV = [
+  'Exec Time,Side,Qty,Pos Effect,Symbol,Price,Commission',
+  '2024-03-04 09:31:05,BUY,100,TO OPEN,AAPL,170.00,1.00',
+  '2024-03-04 14:02:11,SELL,100,TO CLOSE,AAPL,173.00,1.00',
+  '2024-03-05 10:15:00,SELL,50,TO OPEN,TSLA,182.00,0.50',
+  '2024-03-05 15:45:30,BUY,50,TO CLOSE,TSLA,179.00,0.50',
+].join('\n');
+
+async function registerUser(email) {
+  const res = await request(app)
+    .post('/api/auth/register')
+    .send({ email, password: 'secret123' });
+  return res.body;
+}
+
+async function createAccount(token, body = {}) {
+  const res = await request(app)
+    .post('/api/accounts')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ name: 'Main', startingBalance: 10000, ...body });
+  return res.body.account;
+}
+
+beforeEach(() => {
+  app = createApp();
+});
+
+describe('auth', () => {
+  it('registers and logs in a user', async () => {
+    const reg = await registerUser('trader@example.com');
+    expect(reg.token).toBeTruthy();
+    expect(reg.user.email).toBe('trader@example.com');
+
+    const login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'trader@example.com', password: 'secret123' });
+    expect(login.status).toBe(200);
+    expect(login.body.token).toBeTruthy();
+  });
+
+  it('rejects duplicate registration', async () => {
+    await registerUser('dupe@example.com');
+    const res = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'dupe@example.com', password: 'secret123' });
+    expect(res.status).toBe(409);
+  });
+
+  it('rejects bad credentials', async () => {
+    await registerUser('a@example.com');
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'a@example.com', password: 'wrong' });
+    expect(res.status).toBe(401);
+  });
+
+  it('blocks unauthenticated access to protected routes', async () => {
+    const res = await request(app).get('/api/accounts');
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('row-level security (user isolation)', () => {
+  it('prevents one user from reading another user\'s account data', async () => {
+    const alice = await registerUser('alice@example.com');
+    const bob = await registerUser('bob@example.com');
+    const aliceAcct = await createAccount(alice.token);
+
+    // Bob tries to read Alice's trades
+    const res = await request(app)
+      .get(`/api/trades?accountId=${aliceAcct.id}`)
+      .set('Authorization', `Bearer ${bob.token}`);
+    expect(res.status).toBe(404); // account not found for Bob
+
+    // Bob cannot import into Alice's account
+    const imp = await request(app)
+      .post('/api/import')
+      .set('Authorization', `Bearer ${bob.token}`)
+      .send({ accountId: aliceAcct.id, csv: TOS_CSV });
+    expect(imp.status).toBe(404);
+  });
+
+  it('only lists the caller\'s own accounts', async () => {
+    const alice = await registerUser('alice2@example.com');
+    const bob = await registerUser('bob2@example.com');
+    await createAccount(alice.token, { name: 'A1' });
+    await createAccount(bob.token, { name: 'B1' });
+
+    const res = await request(app)
+      .get('/api/accounts')
+      .set('Authorization', `Bearer ${alice.token}`);
+    expect(res.body.accounts).toHaveLength(1);
+    expect(res.body.accounts[0].name).toBe('A1');
+  });
+});
+
+describe('import → state transition', () => {
+  it('importing a CSV updates metrics, trades, and calendar atomically', async () => {
+    const user = await registerUser('flow@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    // Before import: everything empty
+    const before = await request(app).get(`/api/metrics?accountId=${acct.id}`).set(h);
+    expect(before.body.metrics.totalTrades).toBe(0);
+
+    // Import
+    const imp = await request(app)
+      .post('/api/import')
+      .set(h)
+      .send({ accountId: acct.id, csv: TOS_CSV });
+    expect(imp.status).toBe(200);
+    expect(imp.body.broker).toBe('thinkorswim');
+    expect(imp.body.imported.trades).toBe(2);
+    expect(imp.body.errors).toHaveLength(0);
+
+    // Trades log reflects the import
+    const trades = await request(app).get(`/api/trades?accountId=${acct.id}`).set(h);
+    expect(trades.body.trades).toHaveLength(2);
+    const aapl = trades.body.trades.find((t) => t.symbol === 'AAPL');
+    // AAPL: +3 * 100 - 2 commission = 298
+    expect(aapl.netPnl).toBe(298);
+
+    // Metrics reflect the import
+    const metrics = await request(app).get(`/api/metrics?accountId=${acct.id}`).set(h);
+    expect(metrics.body.metrics.totalTrades).toBe(2);
+    // AAPL +298, TSLA short 182→179 = +3*50 -1 = 149 → net 447
+    expect(metrics.body.metrics.netPnl).toBe(447);
+    expect(metrics.body.equityCurve).toHaveLength(2);
+
+    // Calendar reflects the import for March 2024
+    const cal = await request(app)
+      .get(`/api/calendar?accountId=${acct.id}&year=2024&month=3`)
+      .set(h);
+    expect(cal.body.calendar.tradingDays).toBe(2);
+    expect(cal.body.calendar.monthlyPnl).toBe(447);
+  });
+
+  it('re-importing replaces prior data (idempotent)', async () => {
+    const user = await registerUser('reimport@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const trades = await request(app).get(`/api/trades?accountId=${acct.id}`).set(h);
+    // still 2, not 4 — re-import wipes and replaces
+    expect(trades.body.trades).toHaveLength(2);
+  });
+
+  it('reports parse errors for corrupted rows but imports the good ones', async () => {
+    const user = await registerUser('errs@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    const csv = [
+      'Symbol,Action,Quantity,Price,Timestamp',
+      'AAPL,BUY,100,170,2024-03-04 09:31:00',
+      'AAPL,SELL,100,173,2024-03-04 14:00:00',
+      'BADROW,BUY,xyz,10,2024-03-04', // corrupted qty
+    ].join('\n');
+
+    const imp = await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv });
+    expect(imp.body.errors).toHaveLength(1);
+    expect(imp.body.imported.trades).toBe(1);
+  });
+});
+
+describe('trade tagging', () => {
+  it('persists interactive tags on a trade', async () => {
+    const user = await registerUser('tags@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    const trades = await request(app).get(`/api/trades?accountId=${acct.id}`).set(h);
+    const id = trades.body.trades[0].id;
+
+    const patch = await request(app)
+      .patch(`/api/trades/${id}`)
+      .set(h)
+      .send({ tags: ['Breakout', 'Revenge Trade'] });
+    expect(patch.body.trade.tags).toEqual(['Breakout', 'Revenge Trade']);
+  });
+});

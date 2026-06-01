@@ -1,0 +1,164 @@
+// In-memory repository adapter.
+//
+// Mirrors the relational schema (users → accounts → executions/trades) and
+// enforces user-isolation (RLS) on every access: a userId must own the chain
+// before any account/trade/execution is returned or mutated. Swapping this for
+// a Postgres-backed implementation only requires preserving this interface.
+
+import crypto from 'node:crypto';
+import { hashPassword, verifyPassword } from './auth.js';
+
+function uuid() {
+  return crypto.randomUUID();
+}
+
+export class Repository {
+  constructor() {
+    this.users = new Map(); // id → user
+    this.usersByEmail = new Map(); // email → id
+    this.accounts = new Map(); // id → account
+    this.executions = new Map(); // id → execution
+    this.trades = new Map(); // id → trade
+  }
+
+  // --- users -------------------------------------------------------------
+  createUser(email, password) {
+    const normEmail = String(email || '').trim().toLowerCase();
+    if (!normEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normEmail)) {
+      throw new RepoError('invalid email', 400);
+    }
+    if (!password || String(password).length < 6) {
+      throw new RepoError('password must be at least 6 characters', 400);
+    }
+    if (this.usersByEmail.has(normEmail)) {
+      throw new RepoError('email already registered', 409);
+    }
+    const user = {
+      id: uuid(),
+      email: normEmail,
+      passwordHash: hashPassword(password),
+      createdAt: new Date().toISOString(),
+    };
+    this.users.set(user.id, user);
+    this.usersByEmail.set(normEmail, user.id);
+    return this.publicUser(user);
+  }
+
+  authenticate(email, password) {
+    const normEmail = String(email || '').trim().toLowerCase();
+    const id = this.usersByEmail.get(normEmail);
+    const user = id && this.users.get(id);
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      throw new RepoError('invalid credentials', 401);
+    }
+    return this.publicUser(user);
+  }
+
+  getUser(userId) {
+    const user = this.users.get(userId);
+    return user ? this.publicUser(user) : null;
+  }
+
+  publicUser(user) {
+    return { id: user.id, email: user.email, createdAt: user.createdAt };
+  }
+
+  // --- accounts ----------------------------------------------------------
+  createAccount(userId, { name, startingBalance = 10000, commissionPerTrade = 0 }) {
+    this.assertUser(userId);
+    const account = {
+      id: uuid(),
+      userId,
+      name: String(name || 'Default Account').trim(),
+      startingBalance: Number(startingBalance) || 0,
+      commissionPerTrade: Number(commissionPerTrade) || 0,
+      createdAt: new Date().toISOString(),
+    };
+    this.accounts.set(account.id, account);
+    return account;
+  }
+
+  listAccounts(userId) {
+    this.assertUser(userId);
+    return [...this.accounts.values()]
+      .filter((a) => a.userId === userId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  /** RLS gate: returns the account only if owned by userId, else throws. */
+  getAccount(userId, accountId) {
+    this.assertUser(userId);
+    const account = this.accounts.get(accountId);
+    if (!account || account.userId !== userId) {
+      throw new RepoError('account not found', 404);
+    }
+    return account;
+  }
+
+  // --- executions & trades ----------------------------------------------
+  /**
+   * Replace the executions+trades for an account (idempotent re-import).
+   * Returns counts. Ownership is enforced via getAccount().
+   */
+  saveImport(userId, accountId, executions, trades) {
+    const account = this.getAccount(userId, accountId);
+
+    // wipe existing rows for this account (full re-import semantics)
+    for (const [id, e] of this.executions) {
+      if (e.accountId === accountId) this.executions.delete(id);
+    }
+    for (const [id, t] of this.trades) {
+      if (t.accountId === accountId) this.trades.delete(id);
+    }
+
+    for (const exec of executions) {
+      const id = uuid();
+      this.executions.set(id, { ...exec, id, accountId: account.id });
+    }
+    for (const trade of trades) {
+      const id = trade.id || uuid();
+      this.trades.set(id, { ...trade, id, accountId: account.id });
+    }
+    return { executions: executions.length, trades: trades.length };
+  }
+
+  listTrades(userId, accountId) {
+    this.getAccount(userId, accountId); // RLS gate
+    return [...this.trades.values()]
+      .filter((t) => t.accountId === accountId)
+      .sort((a, b) => new Date(a.closedAt) - new Date(b.closedAt));
+  }
+
+  getTrade(userId, tradeId) {
+    const trade = this.trades.get(tradeId);
+    if (!trade) throw new RepoError('trade not found', 404);
+    this.getAccount(userId, trade.accountId); // RLS gate via account chain
+    return trade;
+  }
+
+  updateTradeTags(userId, tradeId, tags) {
+    const trade = this.getTrade(userId, tradeId);
+    trade.tags = Array.isArray(tags) ? tags.map((t) => String(t).trim()).filter(Boolean) : [];
+    return trade;
+  }
+
+  listExecutions(userId, accountId) {
+    this.getAccount(userId, accountId); // RLS gate
+    return [...this.executions.values()].filter((e) => e.accountId === accountId);
+  }
+
+  // --- internals ---------------------------------------------------------
+  assertUser(userId) {
+    if (!userId || !this.users.has(userId)) {
+      throw new RepoError('unauthorized', 401);
+    }
+  }
+}
+
+export class RepoError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.name = 'RepoError';
+    this.status = status;
+  }
+}

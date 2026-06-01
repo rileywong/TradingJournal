@@ -1,0 +1,195 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { api, getStoredUser, clearSession } from './api.js';
+import Auth from './components/Auth.jsx';
+import MetricsGrid from './components/MetricsGrid.jsx';
+import PnlCalendar from './components/PnlCalendar.jsx';
+import TradesTable from './components/TradesTable.jsx';
+import ImportPanel from './components/ImportPanel.jsx';
+
+export default function App() {
+  const [user, setUser] = useState(getStoredUser());
+  const [accounts, setAccounts] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+  const [metrics, setMetrics] = useState(null);
+  const [trades, setTrades] = useState([]);
+  const [calendar, setCalendar] = useState(null);
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
+  const [showNewAccount, setShowNewAccount] = useState(false);
+
+  // Load accounts on login
+  useEffect(() => {
+    if (!user) return;
+    api.listAccounts().then(({ accounts }) => {
+      setAccounts(accounts);
+      if (accounts.length > 0) setActiveId((id) => id || accounts[0].id);
+      else setShowNewAccount(true);
+    }).catch(() => logout());
+  }, [user]);
+
+  // The core state-transition: refresh metrics + trades + calendar together.
+  const refreshDashboard = useCallback(async (accountId, cur) => {
+    if (!accountId) return;
+    const [m, t, c] = await Promise.all([
+      api.getMetrics(accountId),
+      api.getTrades(accountId),
+      api.getCalendar(accountId, cur.year, cur.month),
+    ]);
+    setMetrics(m.metrics);
+    setTrades(t.trades);
+    setCalendar(c.calendar);
+  }, []);
+
+  useEffect(() => {
+    if (activeId) refreshDashboard(activeId, cursor);
+  }, [activeId, cursor, refreshDashboard]);
+
+  const logout = () => {
+    clearSession();
+    setUser(null);
+    setAccounts([]);
+    setActiveId(null);
+    setMetrics(null);
+    setTrades([]);
+    setCalendar(null);
+  };
+
+  const onTag = async (id, tags) => {
+    const { trade } = await api.tagTrade(id, tags);
+    setTrades((prev) => prev.map((t) => (t.id === trade.id ? trade : t)));
+  };
+
+  const shiftMonth = (delta) => {
+    setCursor((c) => {
+      let month = c.month + delta;
+      let year = c.year;
+      if (month < 1) { month = 12; year -= 1; }
+      if (month > 12) { month = 1; year += 1; }
+      return { year, month };
+    });
+  };
+
+  if (!user) return <Auth onAuthed={setUser} />;
+
+  const activeAccount = accounts.find((a) => a.id === activeId);
+
+  return (
+    <div className="app">
+      <div className="topbar">
+        <div className="brand">
+          <span className="dot" />
+          <span>TradeJournal<small> Simplified</small></span>
+        </div>
+        <div className="topbar-right">
+          {accounts.length > 0 && (
+            <select value={activeId || ''} onChange={(e) => setActiveId(e.target.value)}>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+          )}
+          <button className="btn-ghost" onClick={() => setShowNewAccount(true)}>+ Account</button>
+          <span className="muted">{user.email}</span>
+          <button className="btn-ghost" onClick={logout}>Sign out</button>
+        </div>
+      </div>
+
+      <div className="container">
+        {!activeAccount ? (
+          <div className="empty-state">Create an account to begin tracking trades.</div>
+        ) : (
+          <>
+            <div className="section-title">Performance Snapshot</div>
+            <MetricsGrid metrics={metrics} />
+
+            <div className="section-title">This Month &amp; Import</div>
+            <div className="row">
+              <PnlCalendar
+                calendar={calendar}
+                onPrev={() => shiftMonth(-1)}
+                onNext={() => shiftMonth(1)}
+              />
+              <div className="card" style={{ padding: 18 }}>
+                <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
+                <ImportPanel
+                  accountId={activeId}
+                  onImported={() => refreshDashboard(activeId, cursor)}
+                />
+              </div>
+            </div>
+
+            <div className="section-title">Trade Log</div>
+            <TradesTable trades={trades} onTag={onTag} />
+          </>
+        )}
+      </div>
+
+      {showNewAccount && (
+        <NewAccountModal
+          onClose={() => setShowNewAccount(false)}
+          onCreated={(acct) => {
+            setAccounts((prev) => [...prev, acct]);
+            setActiveId(acct.id);
+            setShowNewAccount(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NewAccountModal({ onClose, onCreated }) {
+  const [name, setName] = useState('Main Account');
+  const [startingBalance, setStartingBalance] = useState(10000);
+  const [commissionPerTrade, setCommissionPerTrade] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const { account } = await api.createAccount({
+        name,
+        startingBalance: Number(startingBalance),
+        commissionPerTrade: Number(commissionPerTrade),
+      });
+      onCreated(account);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h2>New Account</h2>
+        {error && <div className="banner error" style={{ marginBottom: 12 }}>{error}</div>}
+        <form onSubmit={submit}>
+          <div className="field">
+            <label>Account name</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+          <div className="field">
+            <label>Starting balance ($)</label>
+            <input type="number" value={startingBalance} onChange={(e) => setStartingBalance(e.target.value)} min="0" step="0.01" />
+          </div>
+          <div className="field">
+            <label>Simulated commission per trade ($)</label>
+            <input type="number" value={commissionPerTrade} onChange={(e) => setCommissionPerTrade(e.target.value)} min="0" step="0.01" />
+          </div>
+          <div className="modal-actions">
+            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn-primary" disabled={busy}>
+              {busy ? 'Creating…' : 'Create account'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
