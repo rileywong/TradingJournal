@@ -8,12 +8,14 @@ import ImportPanel from './components/ImportPanel.jsx';
 import DayDetail from './components/DayDetail.jsx';
 import EquityChart from './components/EquityChart.jsx';
 import Reports from './components/Reports.jsx';
+import ScoreCard from './components/ScoreCard.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
   const [accounts, setAccounts] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [metrics, setMetrics] = useState(null);
+  const [score, setScore] = useState(null);
   const [equityCurve, setEquityCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [view, setView] = useState('dashboard');
@@ -49,6 +51,7 @@ export default function App() {
       api.getAnalytics(accountId),
     ]);
     setMetrics(m.metrics);
+    setScore(m.score || null);
     setEquityCurve(m.equityCurve || []);
     setTrades(t.trades);
     setCalendar(c.calendar);
@@ -73,6 +76,7 @@ export default function App() {
     setAccounts([]);
     setActiveId(null);
     setMetrics(null);
+    setScore(null);
     setEquityCurve([]);
     setAnalytics(null);
     setTrades([]);
@@ -181,6 +185,7 @@ export default function App() {
             {view === 'dashboard' ? (
               <>
                 <div className="section-title">Performance Snapshot</div>
+                <ScoreCard score={score} />
                 <MetricsGrid metrics={metrics} />
 
                 <div className="section-title">Equity Curve</div>

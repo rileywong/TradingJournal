@@ -28,6 +28,7 @@ export {
   streaks,
   buildAnalytics,
 } from './analytics.js';
+export { computeScore } from './score.js';
 export {
   hashPassword,
   verifyPassword,

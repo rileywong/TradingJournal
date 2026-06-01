@@ -240,6 +240,20 @@ tbody tr:hover { background: var(--surface-2); }
 .modal h2 { margin: 0 0 16px; font-size: 18px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
+/* ── Score card ───────────────────────────────────────────────────────── */
+.score-card { display: flex; gap: 28px; align-items: center; padding: 20px 22px; margin-bottom: 16px; flex-wrap: wrap; }
+.score-left { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.score-gauge .score-num { font-size: 34px; font-weight: 800; }
+.score-gauge .score-grade { font-size: 13px; font-weight: 700; fill: var(--muted); }
+.score-caption { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.score-components { flex: 1; min-width: 280px; display: flex; flex-direction: column; gap: 10px; }
+.score-row { display: grid; grid-template-columns: 160px 1fr 32px; align-items: center; gap: 12px; }
+.score-row-label { font-size: 13px; font-weight: 600; color: var(--text); display: flex; justify-content: space-between; padding-right: 8px; }
+.score-weight { font-weight: 600; font-size: 11px; }
+.score-row .bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.score-row .bar span { display: block; height: 100%; border-radius: 999px; }
+.score-row-val { font-size: 13px; font-weight: 700; text-align: right; color: var(--muted); }
+
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin: 4px 0 4px; }
 .tab {

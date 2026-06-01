@@ -133,6 +133,10 @@ describe('import → state transition', () => {
     // AAPL +298, TSLA short 182→179 = +3*50 -1 = 149 → net 447
     expect(metrics.body.metrics.netPnl).toBe(447);
     expect(metrics.body.equityCurve).toHaveLength(2);
+    // Composite trade score travels with the metrics snapshot
+    expect(metrics.body.score.score).toBeGreaterThanOrEqual(0);
+    expect(metrics.body.score.score).toBeLessThanOrEqual(100);
+    expect(metrics.body.score.components).toHaveLength(5);
 
     // Calendar reflects the import for March 2024
     const cal = await request(app)

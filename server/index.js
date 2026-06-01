@@ -20,6 +20,7 @@ import {
   isValidDateKey,
 } from '../core/day.js';
 import { buildAnalytics } from '../core/analytics.js';
+import { computeScore } from '../core/score.js';
 
 export function createApp(repo = new Repository()) {
   const app = express();
@@ -132,6 +133,7 @@ export function createApp(repo = new Repository()) {
     res.json({
       metrics: computeMetrics(trades, { startingBalance: account.startingBalance }),
       equityCurve: equityCurve(trades, account.startingBalance),
+      score: computeScore(trades, { startingBalance: account.startingBalance }),
     });
   }));
 
