@@ -192,6 +192,9 @@ tbody td { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: var(--surface-2); }
 .sym { font-weight: 700; }
+.instr-badge { margin-left: 6px; font-size: 9px; font-weight: 800; letter-spacing: 0.04em; padding: 1px 4px; border-radius: 4px; vertical-align: middle; }
+.instr-badge.opt { background: #ede9fe; color: #6d28d9; }
+.instr-badge.fut { background: #fef3c7; color: #b45309; }
 .pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
 .pill.long { background: var(--accent-bg); color: var(--accent); }
 .pill.short { background: #fdf0e6; color: #d97706; }

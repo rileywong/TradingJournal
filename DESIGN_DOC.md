@@ -302,3 +302,4 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 22. ✅ Cross-account aggregate scope (`accountId=all`)
 23. ✅ Manual column mapping for unrecognized brokers; post-import broker feedback
 24. ✅ SQLite persistence (`node:sqlite`) behind the repository interface
+25. ✅ Options & futures support (contract multipliers, OCC parsing)

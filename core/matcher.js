@@ -28,6 +28,15 @@ function buildTrade(accountId, legs) {
   // Side is determined by the first (opening) leg.
   const side = legs[0].action === 'BUY' ? 'LONG' : 'SHORT';
 
+  // Contract multiplier (options 100×, futures point value); stocks are 1×.
+  const multiplier = legs[0].multiplier || 1;
+  const instrument = legs[0].instrument || 'stock';
+  // Option contract metadata (if any) travels from the opening leg to the trade.
+  const optionMeta = {};
+  for (const k of ['underlying', 'expiry', 'strike', 'right']) {
+    if (legs[0][k] != null) optionMeta[k] = legs[0][k];
+  }
+
   let grossPnl = 0;
   let commission = 0;
   let entryQty = 0;
@@ -36,7 +45,7 @@ function buildTrade(accountId, legs) {
   let exitNotional = 0;
 
   for (const leg of legs) {
-    const cash = (leg.action === 'SELL' ? 1 : -1) * leg.price * leg.quantity;
+    const cash = (leg.action === 'SELL' ? 1 : -1) * leg.price * leg.quantity * multiplier;
     grossPnl += cash;
     commission += leg.commission || 0;
 
@@ -60,6 +69,9 @@ function buildTrade(accountId, legs) {
     accountId,
     symbol,
     side,
+    instrument,
+    multiplier,
+    ...optionMeta,
     quantity: entryQty,
     entryPrice: entryQty > 0 ? entryNotional / entryQty : 0,
     exitPrice: exitQty > 0 ? exitNotional / exitQty : 0,
@@ -176,6 +188,13 @@ function makeLeg(fill, quantity) {
     commission: (fill.commission || 0) * ratio,
     executedAt: fill.executedAt,
     broker: fill.broker,
+    instrument: fill.instrument || 'stock',
+    multiplier: fill.multiplier || 1,
+    // Carry option metadata (underlying/expiry/strike/right) when present.
+    ...(fill.underlying ? { underlying: fill.underlying } : {}),
+    ...(fill.expiry ? { expiry: fill.expiry } : {}),
+    ...(fill.strike != null ? { strike: fill.strike } : {}),
+    ...(fill.right ? { right: fill.right } : {}),
   };
 }
 

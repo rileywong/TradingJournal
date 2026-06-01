@@ -137,3 +137,34 @@ describe('matchTrades', () => {
     expect(short.commission).toBe(1);
   });
 });
+
+describe('matchTrades — contract multipliers (options & futures)', () => {
+  const exm = (symbol, action, qty, price, at, instrument, multiplier) => ({
+    symbol, action, quantity: qty, price, commission: 0, executedAt: at, broker: 'Test', instrument, multiplier,
+  });
+
+  it('applies the 100x multiplier to an options round-trip', () => {
+    const { trades } = matchTrades([
+      exm('AAPL240315C00170000', 'BUY', 2, 1.5, '2024-03-04T09:31:00Z', 'option', 100),
+      exm('AAPL240315C00170000', 'SELL', 2, 2.0, '2024-03-04T14:00:00Z', 'option', 100),
+    ]);
+    expect(trades[0]).toMatchObject({ instrument: 'option', multiplier: 100, netPnl: 100 }); // (2.0-1.5)*2*100
+    expect(trades[0].entryPrice).toBe(1.5); // prices stay per-contract
+  });
+
+  it('applies a futures point value to a round-trip (ES = $50/pt)', () => {
+    const { trades } = matchTrades([
+      exm('/ESZ4', 'BUY', 1, 5000, '2024-03-04T09:31:00Z', 'future', 50),
+      exm('/ESZ4', 'SELL', 1, 5010, '2024-03-04T14:00:00Z', 'future', 50),
+    ]);
+    expect(trades[0]).toMatchObject({ instrument: 'future', multiplier: 50, netPnl: 500 }); // 10pts*1*50
+  });
+
+  it('keeps stocks at 1x when no multiplier is provided', () => {
+    const { trades } = matchTrades([
+      { symbol: 'AAPL', action: 'BUY', quantity: 100, price: 170, commission: 0, executedAt: '2024-03-04T09:31:00Z', broker: 'T' },
+      { symbol: 'AAPL', action: 'SELL', quantity: 100, price: 173, commission: 0, executedAt: '2024-03-04T14:00:00Z', broker: 'T' },
+    ]);
+    expect(trades[0]).toMatchObject({ instrument: 'stock', multiplier: 1, netPnl: 300 });
+  });
+});

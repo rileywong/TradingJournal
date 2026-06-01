@@ -114,7 +114,11 @@ export default function TradesTable({ trades, onTag, onRisk, onTradeNote }) {
           {sorted.map((t) => (
             <React.Fragment key={t.id}>
             <tr>
-              <td className="sym">{t.symbol}</td>
+              <td className="sym">
+                {t.symbol}
+                {t.instrument === 'option' && <span className="instr-badge opt" title={t.right ? `${t.right} ${t.strike} exp ${t.expiry}` : 'Option (×100)'}>OPT</span>}
+                {t.instrument === 'future' && <span className="instr-badge fut" title={`Futures (×${t.multiplier})`}>FUT</span>}
+              </td>
               <td><span className={`pill ${t.side.toLowerCase()}`}>{t.side}</span></td>
               <td style={{ textAlign: 'right' }}>{t.quantity}</td>
               <td style={{ textAlign: 'right' }}>${t.entryPrice.toFixed(2)}</td>

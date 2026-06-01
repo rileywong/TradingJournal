@@ -8,6 +8,12 @@
 
 import { parseCsv } from './csv.js';
 import { parseDate } from './dates.js';
+import { classifyInstrument } from './instruments.js';
+
+// Synonyms for the (optional) instrument-type and contract-multiplier columns,
+// used to classify options/futures regardless of the matched broker.
+const TYPE_COLUMNS = ['type', 'instrument type', 'instrument', 'sec type', 'security type', 'asset type'];
+const MULTIPLIER_COLUMNS = ['multiplier', 'contract multiplier', 'mult'];
 
 // --- action normalization -------------------------------------------------
 const BUY_TOKENS = new Set(['buy', 'b', 'bought', 'bto', 'btc', 'buytoopen', 'buytoclose']);
@@ -206,6 +212,13 @@ export function parseExecutions(text, opts = {}) {
     let commission = normalizeNumber(commissionRaw);
     if (Number.isNaN(commission)) commission = 0;
 
+    // Classify the instrument (stock / option / future) and its contract
+    // multiplier from the symbol plus any type/multiplier columns present.
+    const { instrument, multiplier, ...optionMeta } = classifyInstrument(symbol, {
+      type: pick(lower, TYPE_COLUMNS),
+      multiplier: pick(lower, MULTIPLIER_COLUMNS),
+    });
+
     executions.push({
       symbol,
       action,
@@ -214,6 +227,9 @@ export function parseExecutions(text, opts = {}) {
       commission: Math.abs(commission),
       executedAt,
       broker: def.label,
+      instrument,
+      multiplier,
+      ...optionMeta,
       raw: record,
     });
   });

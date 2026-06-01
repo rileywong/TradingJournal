@@ -21,6 +21,10 @@ institutional-grade performance metrics on a professional dashboard.
   **All accounts** for a combined dashboard, score, calendar, reports, and log.
 - **Trade matching** — groups executions into closed round-trips, handling split
   entries/exits, shorts, and position flips (overshoot-zero splitting).
+- **Options & futures** — contract multipliers applied to P&L (options ×100,
+  futures point values like ES $50/pt); OCC option symbols parsed for
+  underlying/expiry/strike/right; explicit multiplier column honored. The trade
+  log badges OPT/FUT rows.
 - **Statistical engine** — Net P&L, Win Rate, Profit Factor, Expectancy, Max
   Drawdown, equity curve, avg win/loss.
 - **Trade Score** — a composite 0–100 grade (à la TradeZella's Zella Score)
@@ -95,7 +99,7 @@ existing `dist/` build.)
 npm test
 ```
 
-208 tests across the CSV tokenizer, tolerant date parser, broker detection,
+223 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics

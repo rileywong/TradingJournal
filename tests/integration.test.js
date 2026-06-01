@@ -926,3 +926,49 @@ describe('SQLite-backed app (persistence wiring)', () => {
     expect(reTagged.find((t) => t.id === trades[0].id || t.symbol === trades[0].symbol).tags).toContain('A+');
   });
 });
+
+describe('options & futures import (contract multipliers)', () => {
+  it('imports an options CSV and scales P&L by 100x', async () => {
+    const user = await registerUser('optimport@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const csv = [
+      'Symbol,Side,Quantity,Price,Timestamp',
+      'AAPL240315C00170000,BUY,2,1.50,2024-03-04 09:31:00',
+      'AAPL240315C00170000,SELL,2,2.00,2024-03-04 14:00:00',
+    ].join('\n');
+    const res = await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv });
+    expect(res.body.imported.trades).toBe(1);
+    expect(res.body.metrics.netPnl).toBe(100); // (2.0-1.5)*2*100
+    const trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(trades[0]).toMatchObject({ instrument: 'option', multiplier: 100, right: 'CALL', strike: 170 });
+  });
+
+  it('imports a futures CSV using the symbol-derived point value', async () => {
+    const user = await registerUser('futimport@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const csv = [
+      'Symbol,Side,Quantity,Price,Timestamp',
+      '/ESZ4,BUY,1,5000,2024-03-04 09:31:00',
+      '/ESZ4,SELL,1,5010,2024-03-04 14:00:00',
+    ].join('\n');
+    const res = await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv });
+    expect(res.body.metrics.netPnl).toBe(500); // 10 pts * 1 * $50
+    const trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(trades[0]).toMatchObject({ instrument: 'future', multiplier: 50 });
+  });
+
+  it('respects an explicit multiplier column for unknown contracts', async () => {
+    const user = await registerUser('multcol@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const csv = [
+      'Symbol,Side,Quantity,Price,Timestamp,Multiplier',
+      'XYZ,BUY,1,100,2024-03-04 09:31:00,10',
+      'XYZ,SELL,1,110,2024-03-04 14:00:00,10',
+    ].join('\n');
+    const res = await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv });
+    expect(res.body.metrics.netPnl).toBe(100); // (110-100)*1*10
+  });
+});
