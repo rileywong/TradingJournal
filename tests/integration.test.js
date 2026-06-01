@@ -689,3 +689,216 @@ describe('trade tagging', () => {
     expect(patch.body.trade.tags).toEqual(['Scalp', 'News']);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Deep end-to-end coverage for the multi-broker / aggregate / mapping features.
+// ---------------------------------------------------------------------------
+
+// Distinct broker-format CSVs (each a single round-trip) so a merged account
+// holds several recognized brokers.
+const ROBINHOOD_CSV = [
+  'Activity Date,Instrument,Trans Code,Quantity,Price,Fees',
+  '03/07/2024,AMD,buy,100,200.00,0',
+  '03/07/2024,AMD,sell,100,205.00,0',
+].join('\n');
+const WEBULL_CSV = [
+  'Symbol,Side,Filled,Avg Price,Filled Time',
+  'NVDA,BUY,10,500,2024-03-06 11:00:00',
+  'NVDA,SELL,10,510,2024-03-06 12:00:00',
+].join('\n');
+const GENERIC_SPY_CSV = [
+  'Symbol,Action,Quantity,Price,Timestamp',
+  'SPY,BUY,10,400,2024-03-08 09:30:00',
+  'SPY,SELL,10,405,2024-03-08 15:00:00',
+].join('\n');
+
+const findDay = (cal, date) => cal.weeks.flat().find((c) => c && c.date === date);
+const imp = (h, body) => request(app).post('/api/import').set(h).send(body);
+
+describe('append / merge — deep coverage', () => {
+  it('append into an empty account behaves like a first import', async () => {
+    const user = await registerUser('emptyappend@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const res = await imp(h, { accountId: acct.id, csv: TOS_CSV, mode: 'append' });
+    expect(res.body.mode).toBe('append');
+    expect(res.body.addedExecutions).toBe(4);
+    expect(res.body.imported.trades).toBe(2);
+    expect(res.body.accountBrokers).toEqual(['ThinkOrSwim']);
+  });
+
+  it('durable tags survive an append re-derivation', async () => {
+    const user = await registerUser('appendtags@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await imp(h, { accountId: acct.id, csv: TOS_CSV });
+    let trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aapl = trades.find((t) => t.symbol === 'AAPL');
+    await request(app).patch(`/api/trades/${aapl.id}`).set(h).send({ tags: ['breakout'], note: 'clean A+' });
+
+    // Appending a different broker's file re-derives the trade set...
+    await imp(h, { accountId: acct.id, csv: WEBULL_CSV, mode: 'append' });
+    trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aaplAfter = trades.find((t) => t.symbol === 'AAPL');
+    // ...but the durable tag + note (keyed by trade signature) carry over.
+    expect(aaplAfter.tags).toEqual(['breakout']);
+    expect(aaplAfter.note).toBe('clean A+');
+    expect(trades).toHaveLength(3); // AAPL, TSLA, NVDA
+  });
+
+  it('merges three recognized brokers, then a replace shrinks the set', async () => {
+    const user = await registerUser('threebrokers@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await imp(h, { accountId: acct.id, csv: TOS_CSV });
+    await imp(h, { accountId: acct.id, csv: ROBINHOOD_CSV, mode: 'append' });
+    const three = await imp(h, { accountId: acct.id, csv: WEBULL_CSV, mode: 'append' });
+    expect(three.body.accountBrokers.sort()).toEqual(['Robinhood', 'ThinkOrSwim', 'Webull']);
+    expect(three.body.imported.trades).toBe(4); // AAPL, TSLA, AMD, NVDA
+
+    // A replace (default mode) wipes the union back to just the new file.
+    const replaced = await imp(h, { accountId: acct.id, csv: GENERIC_SPY_CSV });
+    expect(replaced.body.accountBrokers).toEqual(['Generic']);
+    expect(replaced.body.imported.trades).toBe(1);
+  });
+});
+
+describe('cross-account aggregate — deep coverage', () => {
+  it('combines same-day P&L across accounts in the calendar', async () => {
+    const user = await registerUser('aggcal@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const a1 = await createAccount(user.token, { name: 'A1' });
+    const a2 = await createAccount(user.token, { name: 'A2' });
+    // Both close a trade on 2024-03-04: A1 +300, A2 +100.
+    await imp(h, { accountId: a1.id, csv: 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,BUY,100,170,2024-03-04 09:31:00\nAAPL,SELL,100,173,2024-03-04 14:00:00' });
+    await imp(h, { accountId: a2.id, csv: 'Symbol,Action,Quantity,Price,Timestamp\nMSFT,BUY,10,400,2024-03-04 10:00:00\nMSFT,SELL,10,410,2024-03-04 15:00:00' });
+
+    const cal = (await request(app).get('/api/calendar?accountId=all&year=2024&month=3').set(h)).body.calendar;
+    expect(cal.monthlyPnl).toBe(400);
+    expect(findDay(cal, '2024-03-04').pnl).toBe(400); // 300 + 100 on one cell
+    expect(cal.tradingDays).toBe(1);
+  });
+
+  it('aggregate honors period (from/to) across accounts', async () => {
+    const user = await registerUser('aggperiod@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const a1 = await createAccount(user.token, { name: 'Mar' });
+    const a2 = await createAccount(user.token, { name: 'Apr' });
+    await imp(h, { accountId: a1.id, csv: 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,BUY,100,170,2024-03-04 09:31:00\nAAPL,SELL,100,173,2024-03-04 14:00:00' });
+    await imp(h, { accountId: a2.id, csv: 'Symbol,Action,Quantity,Price,Timestamp\nNVDA,BUY,10,500,2024-04-10 11:00:00\nNVDA,SELL,10,520,2024-04-10 12:00:00' });
+
+    const apr = (await request(app).get('/api/metrics?accountId=all&from=2024-04-01&to=2024-04-30').set(h)).body.metrics;
+    expect(apr.totalTrades).toBe(1); // only the April account's trade
+    expect(apr.netPnl).toBe(200);
+    const allTime = (await request(app).get('/api/metrics?accountId=all').set(h)).body.metrics;
+    expect(allTime.totalTrades).toBe(2);
+    expect(allTime.netPnl).toBe(500); // 300 + 200
+  });
+
+  it('aggregate respects net vs gross basis across accounts', async () => {
+    const user = await registerUser('aggbasis@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const a1 = await createAccount(user.token, { name: 'A1' });
+    const a2 = await createAccount(user.token, { name: 'A2' });
+    await imp(h, { accountId: a1.id, csv: TOS_CSV }); // commissions present → net 447, gross 450
+    await imp(h, { accountId: a2.id, csv: WEBULL_CSV }); // +100, no commission
+    const net = (await request(app).get('/api/metrics?accountId=all&basis=net').set(h)).body.metrics.netPnl;
+    const gross = (await request(app).get('/api/metrics?accountId=all&basis=gross').set(h)).body.metrics.netPnl;
+    expect(net).toBe(547); // 447 + 100
+    expect(gross).toBe(550); // 450 + 100 (commissions excluded)
+    expect(gross).toBeGreaterThan(net);
+  });
+
+  it('aggregate trade filter by symbol spans accounts', async () => {
+    const user = await registerUser('aggfilter@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const a1 = await createAccount(user.token, { name: 'A1' });
+    const a2 = await createAccount(user.token, { name: 'A2' });
+    await imp(h, { accountId: a1.id, csv: 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,BUY,100,170,2024-03-04 09:31:00\nAAPL,SELL,100,173,2024-03-04 14:00:00' });
+    await imp(h, { accountId: a2.id, csv: 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,BUY,50,170,2024-03-05 09:31:00\nAAPL,SELL,50,175,2024-03-05 14:00:00\nMSFT,BUY,10,400,2024-03-05 10:00:00\nMSFT,SELL,10,410,2024-03-05 15:00:00' });
+    const aapl = (await request(app).get('/api/trades?accountId=all&symbol=AAPL').set(h)).body.trades;
+    expect(aapl).toHaveLength(2); // one AAPL trade from each account
+    expect(aapl.every((t) => t.symbol === 'AAPL')).toBe(true);
+  });
+
+  it('aggregate equals the single account when only one exists', async () => {
+    const user = await registerUser('aggsingle@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const acct = await createAccount(user.token);
+    await imp(h, { accountId: acct.id, csv: TOS_CSV });
+    const one = (await request(app).get(`/api/metrics?accountId=${acct.id}`).set(h)).body.metrics;
+    const all = (await request(app).get('/api/metrics?accountId=all').set(h)).body.metrics;
+    expect(all.totalTrades).toBe(one.totalTrades);
+    expect(all.netPnl).toBe(one.netPnl);
+  });
+
+  it('aggregate for a user with no accounts is empty but well-formed', async () => {
+    const user = await registerUser('aggnone@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const res = await request(app).get('/api/metrics?accountId=all').set(h);
+    expect(res.status).toBe(200);
+    expect(res.body.metrics.totalTrades).toBe(0);
+    expect(res.body.metrics.startingBalance).toBe(0);
+    expect(res.body.equityCurve).toEqual([]);
+    expect(res.body.score.components).toHaveLength(5);
+  });
+});
+
+describe('column mapping — deep coverage', () => {
+  it('infers action from signed quantity when no side column is mapped', async () => {
+    const user = await registerUser('mapsign@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const csv = 'Sym,Qty,Px,T\nAAPL,100,170,2024-03-04 09:31:00\nAAPL,-100,173,2024-03-04 14:00:00';
+    const res = await imp(h, {
+      accountId: acct.id,
+      csv,
+      mapping: { symbol: 'Sym', quantity: 'Qty', price: 'Px', executedAt: 'T' },
+    });
+    expect(res.body.broker).toBe('custom');
+    expect(res.body.imported.trades).toBe(1);
+    expect(res.body.metrics.netPnl).toBe(300);
+  });
+
+  it('combines a mapped custom file with a recognized broker via append', async () => {
+    const user = await registerUser('mapappend@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await imp(h, { accountId: acct.id, csv: TOS_CSV }); // 2 trades, ThinkOrSwim
+    const csv = 'Ticker,Direction,Filled,ExecPrice,When\nMSFT,Bought,50,400,2024-03-07 09:30:00\nMSFT,Sold,50,410,2024-03-07 15:00:00';
+    const res = await imp(h, {
+      accountId: acct.id,
+      mode: 'append',
+      csv,
+      mapping: { symbol: 'Ticker', action: 'Direction', quantity: 'Filled', price: 'ExecPrice', executedAt: 'When' },
+    });
+    expect(res.body.imported.trades).toBe(3);
+    expect(res.body.accountBrokers.sort()).toEqual(['Custom mapping', 'ThinkOrSwim']);
+  });
+
+  it('preview rejects an empty CSV and detects a recognized broker', async () => {
+    const user = await registerUser('mappreview@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const empty = await request(app).post('/api/import/preview').set(h).send({ csv: '' });
+    expect(empty.status).toBe(400);
+    const known = await request(app).post('/api/import/preview').set(h).send({ csv: TOS_CSV });
+    expect(known.body.detectedBroker).toBe('thinkorswim');
+    expect(known.body.fields).toContain('symbol');
+  });
+
+  it('a mapping that omits a required column routes rows to errors', async () => {
+    const user = await registerUser('mapbad@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const csv = 'Sym,Qty,Px,T\nAAPL,100,170,2024-03-04 09:31:00\nAAPL,-100,173,2024-03-04 14:00:00';
+    // price intentionally left unmapped → every row fails validation
+    const res = await imp(h, {
+      accountId: acct.id,
+      csv,
+      mapping: { symbol: 'Sym', quantity: 'Qty', executedAt: 'T' },
+    });
+    expect(res.body.imported.trades).toBe(0);
+    expect(res.body.errors.length).toBe(2);
+    expect(res.body.errors[0].reason).toBe('invalid price');
+  });
+});

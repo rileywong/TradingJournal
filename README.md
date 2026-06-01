@@ -93,7 +93,7 @@ existing `dist/` build.)
 npm test
 ```
 
-186 tests across the CSV tokenizer, tolerant date parser, broker detection,
+199 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics
