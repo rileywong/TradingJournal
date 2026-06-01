@@ -113,6 +113,38 @@ export class Repository {
     return account;
   }
 
+  /** Update mutable account fields (RLS-gated). Unspecified fields are kept. */
+  updateAccount(userId, accountId, { name, startingBalance, commissionPerTrade } = {}) {
+    const account = this.getAccount(userId, accountId); // RLS gate
+    if (name !== undefined) {
+      const trimmed = String(name).trim();
+      if (trimmed) account.name = trimmed;
+    }
+    if (startingBalance !== undefined) account.startingBalance = Number(startingBalance) || 0;
+    if (commissionPerTrade !== undefined) account.commissionPerTrade = Number(commissionPerTrade) || 0;
+    return account;
+  }
+
+  /** Delete an account and cascade to its executions, trades, notes, and tags. */
+  deleteAccount(userId, accountId) {
+    this.getAccount(userId, accountId); // RLS gate
+    for (const [id, e] of this.executions) {
+      if (e.accountId === accountId) this.executions.delete(id);
+    }
+    for (const [id, t] of this.trades) {
+      if (t.accountId === accountId) this.trades.delete(id);
+    }
+    const prefix = `${accountId}::`;
+    for (const key of this.dailyNotes.keys()) {
+      if (key.startsWith(prefix)) this.dailyNotes.delete(key);
+    }
+    for (const key of this.tradeTags.keys()) {
+      if (key.startsWith(prefix)) this.tradeTags.delete(key);
+    }
+    this.accounts.delete(accountId);
+    return { deleted: true };
+  }
+
   // --- executions & trades ----------------------------------------------
   /**
    * Replace the executions+trades for an account (idempotent re-import).

@@ -100,6 +100,41 @@ describe('row-level security (user isolation)', () => {
   });
 });
 
+describe('account management', () => {
+  it('updates and deletes an account (with cascade) over the API', async () => {
+    const user = await registerUser('mgmt@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const patch = await request(app)
+      .patch(`/api/accounts/${acct.id}`)
+      .set(h)
+      .send({ name: 'Renamed', startingBalance: 50000 });
+    expect(patch.status).toBe(200);
+    expect(patch.body.account.name).toBe('Renamed');
+    expect(patch.body.account.startingBalance).toBe(50000);
+
+    const del = await request(app).delete(`/api/accounts/${acct.id}`).set(h);
+    expect(del.status).toBe(200);
+
+    const list = await request(app).get('/api/accounts').set(h);
+    expect(list.body.accounts).toHaveLength(0);
+    // trades are gone with the account
+    const trades = await request(app).get(`/api/trades?accountId=${acct.id}`).set(h);
+    expect(trades.status).toBe(404);
+  });
+
+  it('enforces RLS on update and delete', async () => {
+    const alice = await registerUser('alice6@example.com');
+    const bob = await registerUser('bob6@example.com');
+    const aliceAcct = await createAccount(alice.token);
+    const hb = { Authorization: `Bearer ${bob.token}` };
+    expect((await request(app).patch(`/api/accounts/${aliceAcct.id}`).set(hb).send({ name: 'X' })).status).toBe(404);
+    expect((await request(app).delete(`/api/accounts/${aliceAcct.id}`).set(hb)).status).toBe(404);
+  });
+});
+
 describe('import → state transition', () => {
   it('importing a CSV updates metrics, trades, and calendar atomically', async () => {
     const user = await registerUser('flow@example.com');

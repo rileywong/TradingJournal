@@ -47,6 +47,8 @@ export const api = {
     request('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
   listAccounts: () => request('/accounts'),
   createAccount: (body) => request('/accounts', { method: 'POST', body }),
+  updateAccount: (id, body) => request(`/accounts/${id}`, { method: 'PATCH', body }),
+  deleteAccount: (id) => request(`/accounts/${id}`, { method: 'DELETE' }),
   importCsv: (accountId, csv, broker) =>
     request('/import', { method: 'POST', body: { accountId, csv, broker } }),
   getTrades: (accountId) => request(`/trades?accountId=${accountId}`),

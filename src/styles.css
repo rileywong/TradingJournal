@@ -80,6 +80,8 @@ input:focus, select:focus, textarea:focus {
 .btn-ghost { background: transparent; color: var(--muted); padding: 8px 12px; }
 .btn-ghost:hover { background: var(--bg); }
 .btn-primary { background: var(--accent); color: #fff; padding: 9px 16px; }
+.btn-danger { background: transparent; color: var(--negative); padding: 9px 14px; border: 1px solid #f3c9c9; }
+.btn-danger:hover { background: var(--negative); color: #fff; border-color: var(--negative); }
 .btn-primary:hover { background: #4f52d8; }
 
 .container { max-width: 1180px; margin: 0 auto; padding: 24px 28px 64px; }

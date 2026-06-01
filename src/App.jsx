@@ -28,6 +28,7 @@ export default function App() {
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
   });
   const [showNewAccount, setShowNewAccount] = useState(false);
+  const [editAccount, setEditAccount] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayDetail, setDayDetail] = useState(null);
   const [dayLoading, setDayLoading] = useState(false);
@@ -167,6 +168,16 @@ export default function App() {
               ))}
             </select>
           )}
+          {activeAccount && (
+            <button
+              className="btn-ghost"
+              onClick={() => setEditAccount(activeAccount)}
+              title="Edit account settings"
+              aria-label="Edit account"
+            >
+              ⚙
+            </button>
+          )}
           <button className="btn-ghost" onClick={() => setShowNewAccount(true)}>+ Account</button>
           <span className="muted">{user.email}</span>
           <button className="btn-ghost" onClick={logout}>Sign out</button>
@@ -247,12 +258,33 @@ export default function App() {
       )}
 
       {showNewAccount && (
-        <NewAccountModal
+        <AccountModal
           onClose={() => setShowNewAccount(false)}
-          onCreated={(acct) => {
+          onSaved={(acct) => {
             setAccounts((prev) => [...prev, acct]);
             setActiveId(acct.id);
             setShowNewAccount(false);
+          }}
+        />
+      )}
+
+      {editAccount && (
+        <AccountModal
+          account={editAccount}
+          onClose={() => setEditAccount(null)}
+          onSaved={(acct) => {
+            setAccounts((prev) => prev.map((a) => (a.id === acct.id ? acct : a)));
+            setEditAccount(null);
+            // Starting balance / commission affect the snapshot — refresh.
+            refreshDashboard(acct.id, cursor);
+          }}
+          onDeleted={(id) => {
+            setEditAccount(null);
+            setAccounts((prev) => {
+              const next = prev.filter((a) => a.id !== id);
+              if (activeId === id) setActiveId(next[0]?.id || null);
+              return next;
+            });
           }}
         />
       )}
@@ -260,11 +292,14 @@ export default function App() {
   );
 }
 
-function NewAccountModal({ onClose, onCreated }) {
-  const [name, setName] = useState('Main Account');
-  const [startingBalance, setStartingBalance] = useState(10000);
-  const [commissionPerTrade, setCommissionPerTrade] = useState(0);
+/** Create (no `account`) or edit (with `account`) an account; edit mode can delete. */
+function AccountModal({ account, onClose, onSaved, onDeleted }) {
+  const editing = Boolean(account);
+  const [name, setName] = useState(account?.name ?? 'Main Account');
+  const [startingBalance, setStartingBalance] = useState(account?.startingBalance ?? 10000);
+  const [commissionPerTrade, setCommissionPerTrade] = useState(account?.commissionPerTrade ?? 0);
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
 
   const submit = async (e) => {
@@ -272,12 +307,27 @@ function NewAccountModal({ onClose, onCreated }) {
     setBusy(true);
     setError('');
     try {
-      const { account } = await api.createAccount({
+      const body = {
         name,
         startingBalance: Number(startingBalance),
         commissionPerTrade: Number(commissionPerTrade),
-      });
-      onCreated(account);
+      };
+      const { account: saved } = editing
+        ? await api.updateAccount(account.id, body)
+        : await api.createAccount(body);
+      onSaved(saved);
+    } catch (err) {
+      setError(err.message);
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await api.deleteAccount(account.id);
+      onDeleted(account.id);
     } catch (err) {
       setError(err.message);
       setBusy(false);
@@ -287,7 +337,7 @@ function NewAccountModal({ onClose, onCreated }) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>New Account</h2>
+        <h2>{editing ? 'Account Settings' : 'New Account'}</h2>
         {error && <div className="banner error" style={{ marginBottom: 12 }}>{error}</div>}
         <form onSubmit={submit}>
           <div className="field">
@@ -303,9 +353,19 @@ function NewAccountModal({ onClose, onCreated }) {
             <input type="number" value={commissionPerTrade} onChange={(e) => setCommissionPerTrade(e.target.value)} min="0" step="0.01" />
           </div>
           <div className="modal-actions">
+            {editing && !confirmDelete && (
+              <button type="button" className="btn-danger" onClick={() => setConfirmDelete(true)} disabled={busy} style={{ marginRight: 'auto' }}>
+                Delete
+              </button>
+            )}
+            {editing && confirmDelete && (
+              <button type="button" className="btn-danger" onClick={remove} disabled={busy} style={{ marginRight: 'auto' }}>
+                {busy ? 'Deleting…' : 'Confirm delete — this erases all its trades'}
+              </button>
+            )}
             <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={busy}>
-              {busy ? 'Creating…' : 'Create account'}
+              {busy ? 'Saving…' : editing ? 'Save changes' : 'Create account'}
             </button>
           </div>
         </form>

@@ -90,6 +90,16 @@ export function createApp(repo = new Repository()) {
     res.status(201).json({ account });
   }));
 
+  app.patch('/api/accounts/:id', auth, wrap((req, res) => {
+    const account = repo.updateAccount(req.userId, req.params.id, req.body || {});
+    res.json({ account });
+  }));
+
+  app.delete('/api/accounts/:id', auth, wrap((req, res) => {
+    repo.deleteAccount(req.userId, req.params.id);
+    res.json({ ok: true });
+  }));
+
   // --- import ------------------------------------------------------------
   app.post('/api/import', auth, wrap((req, res) => {
     const { accountId, csv, broker } = req.body || {};
