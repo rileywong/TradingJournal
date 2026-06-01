@@ -354,4 +354,34 @@ describe('trade tagging', () => {
       .send({ tags: ['Breakout', 'Revenge Trade'] });
     expect(patch.body.trade.tags).toEqual(['Breakout', 'Revenge Trade']);
   });
+
+  it('preserves tags across a re-import (durable by trade signature)', async () => {
+    const user = await registerUser('durabletags@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    let trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aapl = trades.find((t) => t.symbol === 'AAPL');
+    await request(app).patch(`/api/trades/${aapl.id}`).set(h).send({ tags: ['Breakout'] });
+
+    // Re-import the same CSV: trade rows are regenerated with new ids.
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aaplAfter = trades.find((t) => t.symbol === 'AAPL');
+    expect(aaplAfter.tags).toEqual(['Breakout']); // survived the re-import
+  });
+
+  it('de-duplicates tags', async () => {
+    const user = await registerUser('dupetags@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    const trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const patch = await request(app)
+      .patch(`/api/trades/${trades[0].id}`)
+      .set(h)
+      .send({ tags: ['Scalp', 'Scalp', 'News'] });
+    expect(patch.body.trade.tags).toEqual(['Scalp', 'News']);
+  });
 });

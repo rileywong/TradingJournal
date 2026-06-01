@@ -20,6 +20,15 @@ export class Repository {
     this.executions = new Map(); // id → execution
     this.trades = new Map(); // id → trade
     this.dailyNotes = new Map(); // `${accountId}::${date}` → { note, updatedAt }
+    this.tradeTags = new Map(); // `${accountId}::${signature}` → tags[] (durable)
+  }
+
+  /**
+   * Stable identity for a closed trade, independent of its (regenerated) row id,
+   * so annotations like tags survive a re-import.
+   */
+  tradeSignature(trade) {
+    return [trade.symbol, trade.side, trade.openedAt, trade.closedAt, trade.quantity].join('|');
   }
 
   // --- users -------------------------------------------------------------
@@ -118,7 +127,11 @@ export class Repository {
     }
     for (const trade of trades) {
       const id = trade.id || uuid();
-      this.trades.set(id, { ...trade, id, accountId: account.id });
+      // Re-apply any tags previously attached to this trade signature so a
+      // re-import doesn't wipe the user's annotations.
+      const stored = this.tradeTags.get(`${account.id}::${this.tradeSignature(trade)}`);
+      const tags = stored ? [...stored] : trade.tags || [];
+      this.trades.set(id, { ...trade, id, accountId: account.id, tags });
     }
     return { executions: executions.length, trades: trades.length };
   }
@@ -139,7 +152,14 @@ export class Repository {
 
   updateTradeTags(userId, tradeId, tags) {
     const trade = this.getTrade(userId, tradeId);
-    trade.tags = Array.isArray(tags) ? tags.map((t) => String(t).trim()).filter(Boolean) : [];
+    const clean = Array.isArray(tags)
+      ? [...new Set(tags.map((t) => String(t).trim()).filter(Boolean))]
+      : [];
+    trade.tags = clean;
+    // Persist by stable signature so the tags outlive a re-import.
+    const key = `${trade.accountId}::${this.tradeSignature(trade)}`;
+    if (clean.length === 0) this.tradeTags.delete(key);
+    else this.tradeTags.set(key, [...clean]);
     return trade;
   }
 

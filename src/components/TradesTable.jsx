@@ -51,10 +51,11 @@ export default function TradesTable({ trades, onTag }) {
     }
   };
 
-  const addTag = (trade, tag) => {
+  const addTag = (trade, raw) => {
+    const tag = (raw || '').trim();
+    setAdding(null);
     if (!tag || trade.tags.includes(tag)) return;
     onTag(trade.id, [...trade.tags, tag]);
-    setAdding(null);
   };
   const removeTag = (trade, tag) => {
     onTag(trade.id, trade.tags.filter((t) => t !== tag));
@@ -70,6 +71,9 @@ export default function TradesTable({ trades, onTag }) {
 
   return (
     <div className="card">
+      <datalist id="preset-tags">
+        {PRESET_TAGS.map((p) => <option key={p} value={p} />)}
+      </datalist>
       <table>
         <thead>
           <tr>
@@ -106,17 +110,17 @@ export default function TradesTable({ trades, onTag }) {
                     </span>
                   ))}
                   {adding === t.id ? (
-                    <select
+                    <input
                       autoFocus
-                      defaultValue=""
-                      onChange={(e) => addTag(t, e.target.value)}
-                      onBlur={() => setAdding(null)}
-                    >
-                      <option value="" disabled>Pick tag…</option>
-                      {PRESET_TAGS.filter((p) => !t.tags.includes(p)).map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))}
-                    </select>
+                      list="preset-tags"
+                      className="tag-input"
+                      placeholder="Tag or custom…"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') addTag(t, e.target.value);
+                        else if (e.key === 'Escape') setAdding(null);
+                      }}
+                      onBlur={(e) => addTag(t, e.target.value)}
+                    />
                   ) : (
                     <button className="tag-add" onClick={() => setAdding(t.id)}>+ tag</button>
                   )}
