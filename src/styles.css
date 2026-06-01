@@ -121,7 +121,14 @@ input:focus, select:focus, textarea:focus {
 .cal-nav button:hover { background: var(--border); }
 .cal-month-pnl { font-weight: 700; font-size: 14px; }
 
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr) 0.9fr; gap: 6px; }
+.cal-week-sum {
+  border-radius: 9px; border: 1px dashed var(--border); padding: 7px 8px; min-height: 64px;
+  display: flex; flex-direction: column; justify-content: space-between; background: var(--surface);
+}
+.cal-week-label { font-size: 10px; font-weight: 700; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.4px; }
+.cal-week-sum .cell-pnl { font-size: 12px; font-weight: 800; }
+.cal-week-sum .cell-trades { font-size: 10px; color: var(--muted-2); font-weight: 600; }
 .cal-dow { text-align: center; font-size: 11px; font-weight: 700; color: var(--muted-2); padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
 .cal-cell {
   aspect-ratio: 1 / 0.82;

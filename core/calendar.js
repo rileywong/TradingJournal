@@ -63,5 +63,19 @@ export function buildMonthlyCalendar(trades, year, month) {
   const weeks = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
-  return { year, month, weeks, monthlyPnl, tradingDays };
+  // Per-week roll-up (TradeZella-style summary column beside the grid).
+  const weekSummaries = weeks.map((week) => {
+    let pnl = 0;
+    let trades = 0;
+    let days = 0;
+    for (const cell of week) {
+      if (!cell || cell.trades === 0) continue;
+      pnl = round2(pnl + cell.pnl);
+      trades += cell.trades;
+      days += 1;
+    }
+    return { pnl, trades, tradingDays: days };
+  });
+
+  return { year, month, weeks, weekSummaries, monthlyPnl, tradingDays };
 }

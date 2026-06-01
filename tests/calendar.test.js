@@ -52,6 +52,24 @@ describe('buildMonthlyCalendar', () => {
     expect(cal.tradingDays).toBe(2);
   });
 
+  it('rolls up per-week summaries aligned with the weeks', () => {
+    // March 2024: 1st is Friday. Week 0 = Sun..Sat containing Mar 1-2.
+    const cal = buildMonthlyCalendar(
+      [
+        trade(100, '2024-03-01T10:00:00'), // Fri, week 0
+        trade(50, '2024-03-04T10:00:00'),  // Mon, week 1
+        trade(-20, '2024-03-05T10:00:00'), // Tue, week 1
+      ],
+      2024,
+      3
+    );
+    expect(cal.weekSummaries).toHaveLength(cal.weeks.length);
+    expect(cal.weekSummaries[0]).toMatchObject({ pnl: 100, trades: 1, tradingDays: 1 });
+    expect(cal.weekSummaries[1]).toMatchObject({ pnl: 30, trades: 2, tradingDays: 2 });
+    // weeks with no trades summarize to zero
+    expect(cal.weekSummaries[cal.weeks.length - 1].trades).toBe(0);
+  });
+
   it('excludes trades from other months', () => {
     const cal = buildMonthlyCalendar([trade(999, '2024-04-01T10:00:00')], 2024, 3);
     expect(cal.monthlyPnl).toBe(0);
