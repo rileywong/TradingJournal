@@ -6,6 +6,7 @@ export {
   detectBroker,
   normalizeAction,
   normalizeNumber,
+  dedupeExecutions,
 } from './parser.js';
 export { matchTrades } from './matcher.js';
 export {

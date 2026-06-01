@@ -5,6 +5,7 @@ import {
   detectBroker,
   normalizeAction,
   normalizeNumber,
+  dedupeExecutions,
 } from '../core/parser.js';
 
 describe('parseDate (tolerant)', () => {
@@ -167,5 +168,32 @@ describe('parseExecutions', () => {
     const { executions } = parseExecutions(csv);
     expect(executions[0].symbol).toBe('AAPL');
     expect(executions[0].quantity).toBe(50);
+  });
+});
+
+describe('dedupeExecutions', () => {
+  const ex = (over = {}) => ({
+    symbol: 'AAPL', action: 'BUY', quantity: 100, price: 170, commission: 1,
+    executedAt: '2024-03-04T09:31:00.000Z', broker: 'ThinkOrSwim', ...over,
+  });
+
+  it('drops exact duplicates, keeps first occurrence', () => {
+    const out = dedupeExecutions([ex(), ex(), ex({ price: 171 })]);
+    expect(out).toHaveLength(2);
+    expect(out[1].price).toBe(171);
+  });
+
+  it('keeps fills that differ in any field', () => {
+    const out = dedupeExecutions([
+      ex(),
+      ex({ action: 'SELL' }),
+      ex({ executedAt: '2024-03-04T10:00:00.000Z' }),
+      ex({ broker: 'Webull' }),
+    ]);
+    expect(out).toHaveLength(4);
+  });
+
+  it('is a no-op on an empty list', () => {
+    expect(dedupeExecutions([])).toEqual([]);
   });
 });

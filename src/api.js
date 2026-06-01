@@ -61,8 +61,8 @@ export const api = {
     request(`/accounts/${accountId}/tags/rename`, { method: 'POST', body: { from, to } }),
   removeTag: (accountId, tag) =>
     request(`/accounts/${accountId}/tags/delete`, { method: 'POST', body: { tag } }),
-  importCsv: (accountId, csv, broker) =>
-    request('/import', { method: 'POST', body: { accountId, csv, broker } }),
+  importCsv: (accountId, csv, broker, mode) =>
+    request('/import', { method: 'POST', body: { accountId, csv, broker, mode } }),
   getTrades: (accountId, range = {}) => request(`/trades?accountId=${accountId}${qs(range)}`),
   tagTrade: (id, tags) => request(`/trades/${id}`, { method: 'PATCH', body: { tags } }),
   setTradeRisk: (id, riskAmount) => request(`/trades/${id}`, { method: 'PATCH', body: { riskAmount } }),

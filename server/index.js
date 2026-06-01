@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { Repository, RepoError } from '../core/repository.js';
 import { signToken, verifyToken } from '../core/auth.js';
-import { parseExecutions } from '../core/parser.js';
+import { parseExecutions, dedupeExecutions } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
 import { computeMetrics, equityCurve, drawdownSeries } from '../core/metrics.js';
 import { buildMonthlyCalendar, buildYearHeatmap } from '../core/calendar.js';
@@ -115,13 +115,25 @@ export function createApp(repo = new Repository()) {
   // --- import ------------------------------------------------------------
   app.post('/api/import', auth, wrap((req, res) => {
     const { accountId, csv, broker } = req.body || {};
+    const mode = req.body && req.body.mode === 'append' ? 'append' : 'replace';
     if (!accountId) return res.status(400).json({ error: 'accountId required' });
     if (typeof csv !== 'string' || csv.trim() === '') {
       return res.status(400).json({ error: 'csv content required' });
     }
     const account = repo.getAccount(req.userId, accountId); // RLS gate
 
-    const { broker: detected, executions, errors } = parseExecutions(csv, { broker });
+    const { broker: detected, executions: parsed, errors } = parseExecutions(csv, { broker });
+
+    // Append mode merges this file's fills with the account's existing
+    // executions (de-duping exact repeats), then re-derives ALL trades from the
+    // union — so a position opened on one broker and closed on another matches.
+    const addedCount = parsed.length;
+    let executions = parsed;
+    if (mode === 'append') {
+      const existing = repo.listExecutions(req.userId, accountId);
+      executions = dedupeExecutions([...existing, ...parsed]);
+    }
+
     const { trades, open } = matchTrades(executions, {
       accountId,
       commissionPerTrade: account.commissionPerTrade,
@@ -130,6 +142,8 @@ export function createApp(repo = new Repository()) {
 
     res.json({
       broker: detected,
+      mode,
+      addedExecutions: addedCount,
       imported: saved,
       errors,
       openPositions: open,

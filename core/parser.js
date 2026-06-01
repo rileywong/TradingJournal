@@ -203,3 +203,22 @@ export function parseExecutions(text, opts = {}) {
 
   return { broker: brokerKey, executions, errors };
 }
+
+/**
+ * Drop exact-duplicate executions (same symbol/action/qty/price/commission/time/
+ * broker), keeping first occurrence. Makes appending a previously-imported file
+ * idempotent when merging multiple brokers into one account.
+ * @param {object[]} executions
+ * @returns {object[]}
+ */
+export function dedupeExecutions(executions) {
+  const seen = new Set();
+  const out = [];
+  for (const e of executions) {
+    const key = [e.symbol, e.action, e.quantity, e.price, e.commission, e.executedAt, e.broker].join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+  }
+  return out;
+}

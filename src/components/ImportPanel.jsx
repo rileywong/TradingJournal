@@ -4,6 +4,7 @@ import { api } from '../api.js';
 export default function ImportPanel({ accountId, onImported }) {
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState('replace');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const inputRef = useRef(null);
@@ -15,7 +16,7 @@ export default function ImportPanel({ accountId, onImported }) {
     setBusy(true);
     try {
       const csv = await file.text();
-      const res = await api.importCsv(accountId, csv);
+      const res = await api.importCsv(accountId, csv, undefined, mode);
       setResult(res);
       onImported(res);
     } catch (err) {
@@ -34,6 +35,25 @@ export default function ImportPanel({ accountId, onImported }) {
 
   return (
     <div className="import-panel">
+      <div className="import-mode" role="group" aria-label="Import mode">
+        {[['replace', 'Replace account'], ['append', 'Add to existing']].map(([key, label]) => (
+          <label key={key} className={`import-mode-opt ${mode === key ? 'active' : ''}`}>
+            <input
+              type="radio"
+              name="import-mode"
+              value={key}
+              checked={mode === key}
+              onChange={() => setMode(key)}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div className="hint" style={{ marginBottom: 8 }}>
+        {mode === 'append'
+          ? 'Merges this file with the account — combine multiple brokers; re-uploads de-dupe.'
+          : 'Replaces all trades in this account with this file.'}
+      </div>
       <div
         className={`dropzone ${drag ? 'drag' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
@@ -60,8 +80,9 @@ export default function ImportPanel({ accountId, onImported }) {
       {result && (
         <div className="import-result">
           <div className="banner ok">
-            Imported {result.imported.trades} trade{result.imported.trades !== 1 ? 's' : ''} from{' '}
-            {result.imported.executions} executions ({result.broker}).
+            {result.mode === 'append'
+              ? `Added ${result.addedExecutions} executions (${result.broker}) — account now has ${result.imported.trades} trade${result.imported.trades !== 1 ? 's' : ''} from ${result.imported.executions} executions.`
+              : `Imported ${result.imported.trades} trade${result.imported.trades !== 1 ? 's' : ''} from ${result.imported.executions} executions (${result.broker}).`}
           </div>
           {result.errors?.length > 0 && (
             <div className="banner error" style={{ marginTop: 8 }}>

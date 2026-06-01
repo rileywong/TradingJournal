@@ -270,6 +270,53 @@ describe('import → state transition', () => {
     expect(cal.body.calendar.monthlyPnl).toBe(447);
   });
 
+  it('append mode merges multiple files (and re-appending de-dupes)', async () => {
+    const user = await registerUser('append@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    // File 1 (ThinkOrSwim): AAPL + TSLA → 2 trades
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    // File 2 (generic): NVDA round-trip → append, total 3
+    const nvda = [
+      'Symbol,Action,Quantity,Price,Timestamp',
+      'NVDA,BUY,10,500,2024-03-06 11:00:00',
+      'NVDA,SELL,10,510,2024-03-06 12:00:00',
+    ].join('\n');
+    const appended = await request(app).post('/api/import').set(h)
+      .send({ accountId: acct.id, csv: nvda, mode: 'append' });
+    expect(appended.body.mode).toBe('append');
+    expect(appended.body.imported.trades).toBe(3); // 2 + 1
+
+    // Re-append the same NVDA file → de-duped, still 3
+    const again = await request(app).post('/api/import').set(h)
+      .send({ accountId: acct.id, csv: nvda, mode: 'append' });
+    expect(again.body.imported.trades).toBe(3);
+  });
+
+  it('append matches a position opened on one broker and closed on another', async () => {
+    const user = await registerUser('crossbroker@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+
+    // Broker A: open 100 AAPL
+    const openCsv = 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,BUY,100,170,2024-03-04 09:31:00';
+    // Broker B: close 100 AAPL
+    const closeCsv = 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,SELL,100,175,2024-03-05 10:00:00';
+
+    const first = await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: openCsv });
+    expect(first.body.imported.trades).toBe(0); // still open
+    expect(first.body.openPositions).toHaveLength(1);
+
+    const second = await request(app).post('/api/import').set(h)
+      .send({ accountId: acct.id, csv: closeCsv, mode: 'append' });
+    expect(second.body.imported.trades).toBe(1); // opened on A, closed on B → matched
+    expect(second.body.openPositions).toHaveLength(0);
+
+    const trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(trades[0].netPnl).toBe(500); // (175-170)*100
+  });
+
   it('re-importing replaces prior data (idempotent)', async () => {
     const user = await registerUser('reimport@example.com');
     const acct = await createAccount(user.token);
