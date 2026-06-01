@@ -231,7 +231,10 @@ reports update atomically — the core state-transition guarantee verified in
 | `GET  /api/trades`       | Trade log; optional `symbol/side/tag/outcome/from/to` filters |
 | `PATCH /api/trades/:id`  | Update tags and/or planned `riskAmount` (durable by signature)|
 | `GET  /api/metrics`      | Snapshot + `equityCurve` + `drawdownCurve` + `score` (optional `from/to`) |
-| `GET  /api/calendar`     | Monthly P&L grid (+ weekly roll-ups) + `notedDays`           |
+| `GET  /api/calendar`     | Monthly P&L grid (+ weekly roll-ups) + `notedDays` (`basis`)  |
+| `GET  /api/year`         | GitHub-style yearly P&L heatmap (`basis`)                     |
+| `POST /api/accounts/:id/tags/rename` | Rename a tag across all trades                  |
+| `POST /api/accounts/:id/tags/delete` | Remove a tag from all trades                    |
 | `GET  /api/day`          | Daily stats + that day's trades + intraday curve + note       |
 | `PUT  /api/day/note`     | Upsert a day's journal note (empty clears)                    |
 | `GET  /api/analytics`    | Breakdowns, streaks, hold time, winners-vs-losers, R-multiple, heatmap (optional `from/to`, `basis`) |
@@ -294,3 +297,4 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 17. ✅ Net vs Gross P&L toggle
 18. ✅ Weekday × hour P&L heatmap
 19. ✅ Persisted per-trade journal notes
+20. ✅ Yearly P&L heatmap; per-trade notes in the day chart tooltip; tag management
