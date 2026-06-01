@@ -25,7 +25,7 @@ export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '' };
  * shared core `filterTrades`, matching GET /api/trades semantics without a
  * round-trip.
  */
-export default function TradeLog({ trades, onTag, onRisk, filter = EMPTY_FILTER, onFilterChange }) {
+export default function TradeLog({ trades, onTag, onRisk, onTradeNote, filter = EMPTY_FILTER, onFilterChange }) {
   const f = filter;
   const setFilter = onFilterChange || (() => {});
 
@@ -73,7 +73,7 @@ export default function TradeLog({ trades, onTag, onRisk, filter = EMPTY_FILTER,
           Export CSV
         </button>
       </div>
-      <TradesTable trades={filtered} onTag={onTag} onRisk={onRisk} />
+      <TradesTable trades={filtered} onTag={onTag} onRisk={onRisk} onTradeNote={onTradeNote} />
     </div>
   );
 }

@@ -216,6 +216,14 @@ tbody tr:hover { background: var(--surface-2); }
 .risk-btn { background: transparent; border: none; padding: 2px 4px; font: inherit; font-size: 12px; cursor: pointer; color: var(--text); }
 .risk-btn:hover { background: var(--surface-2); border-radius: 6px; }
 .risk-input { font: inherit; font-size: 12px; padding: 3px 6px; width: 78px; text-align: right; border: 1px solid var(--accent); border-radius: 6px; outline: none; box-shadow: 0 0 0 3px var(--accent-bg); }
+.note-toggle { background: transparent; color: var(--muted); font-size: 11px; padding: 2px 6px; border: 1px dashed var(--border); border-radius: 999px; cursor: pointer; }
+.note-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.note-toggle.has-note { color: var(--accent); border-style: solid; border-color: var(--accent-bg); }
+.trade-note-row > td { background: var(--surface-2); padding: 12px 14px; }
+.trade-note { display: flex; flex-direction: column; gap: 8px; }
+.trade-note-input { width: 100%; resize: vertical; min-height: 64px; font: inherit; font-size: 13px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--surface); box-sizing: border-box; }
+.trade-note-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.trade-note-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
 /* ---------- import panel ---------- */
 .import-panel { display: grid; gap: 14px; }

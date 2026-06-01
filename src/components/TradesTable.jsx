@@ -30,11 +30,12 @@ function rMultiple(t) {
   return Number.isFinite(risk) && risk > 0 ? t.netPnl / risk : null;
 }
 
-export default function TradesTable({ trades, onTag, onRisk }) {
+export default function TradesTable({ trades, onTag, onRisk, onTradeNote }) {
   const [sortKey, setSortKey] = useState('closedAt');
   const [sortDir, setSortDir] = useState('desc');
   const [adding, setAdding] = useState(null);
   const [editingRisk, setEditingRisk] = useState(null);
+  const [noteOpen, setNoteOpen] = useState(null);
   // Set when Escape cancels an inline input, so the resulting blur doesn't commit.
   const cancelNextBlur = useRef(false);
 
@@ -111,7 +112,8 @@ export default function TradesTable({ trades, onTag, onRisk }) {
         </thead>
         <tbody>
           {sorted.map((t) => (
-            <tr key={t.id}>
+            <React.Fragment key={t.id}>
+            <tr>
               <td className="sym">{t.symbol}</td>
               <td><span className={`pill ${t.side.toLowerCase()}`}>{t.side}</span></td>
               <td style={{ textAlign: 'right' }}>{t.quantity}</td>
@@ -182,12 +184,57 @@ export default function TradesTable({ trades, onTag, onRisk }) {
                   ) : (
                     <button className="tag-add" onClick={() => setAdding(t.id)}>+ tag</button>
                   )}
+                  {onTradeNote && (
+                    <button
+                      className={`note-toggle ${t.note ? 'has-note' : ''}`}
+                      onClick={() => setNoteOpen(noteOpen === t.id ? null : t.id)}
+                      title={t.note ? 'Edit note' : 'Add note'}
+                    >
+                      {t.note ? '📝 note' : '+ note'}
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>
+            {noteOpen === t.id && onTradeNote && (
+              <tr className="trade-note-row">
+                <td colSpan={COLUMNS.length}>
+                  <TradeNote
+                    key={t.id}
+                    note={t.note || ''}
+                    onSave={(text) => { onTradeNote(t.id, text); setNoteOpen(null); }}
+                    onCancel={() => setNoteOpen(null)}
+                  />
+                </td>
+              </tr>
+            )}
+          </React.Fragment>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/** Inline per-trade journal note editor (shown in an expanded row). */
+function TradeNote({ note, onSave, onCancel }) {
+  const [text, setText] = useState(note);
+  return (
+    <div className="trade-note">
+      <textarea
+        autoFocus
+        className="trade-note-input"
+        placeholder="Notes on this trade — thesis, execution, what you'd do differently…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+      />
+      <div className="trade-note-actions">
+        <button className="btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="btn-primary" onClick={() => onSave(text)} disabled={text === note}>
+          Save note
+        </button>
+      </div>
     </div>
   );
 }

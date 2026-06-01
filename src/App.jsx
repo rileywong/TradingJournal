@@ -122,6 +122,11 @@ export default function App() {
     }
   };
 
+  const onTradeNote = async (id, note) => {
+    const { trade } = await api.setTradeNote(id, note);
+    applyTradeUpdate(trade);
+  };
+
   const openDay = useCallback(async (date) => {
     if (!activeId) return;
     setSelectedDate((prev) => {
@@ -294,6 +299,7 @@ export default function App() {
                   trades={trades}
                   onTag={onTag}
                   onRisk={onRisk}
+                  onTradeNote={onTradeNote}
                   filter={tradeFilter}
                   onFilterChange={setTradeFilter}
                 />
@@ -312,6 +318,7 @@ export default function App() {
           onClose={closeDay}
           onTag={onTag}
           onRisk={onRisk}
+          onTradeNote={onTradeNote}
           onSaveNote={saveDayNote}
         />
       )}

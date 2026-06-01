@@ -62,6 +62,7 @@ export const api = {
   getTrades: (accountId, range = {}) => request(`/trades?accountId=${accountId}${qs(range)}`),
   tagTrade: (id, tags) => request(`/trades/${id}`, { method: 'PATCH', body: { tags } }),
   setTradeRisk: (id, riskAmount) => request(`/trades/${id}`, { method: 'PATCH', body: { riskAmount } }),
+  setTradeNote: (id, note) => request(`/trades/${id}`, { method: 'PATCH', body: { note } }),
   getMetrics: (accountId, range = {}) => request(`/metrics?accountId=${accountId}${qs(range)}`),
   getCalendar: (accountId, year, month, basis) =>
     request(`/calendar?accountId=${accountId}&year=${year}&month=${month}${qs({ basis })}`),

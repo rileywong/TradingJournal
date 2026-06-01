@@ -22,6 +22,7 @@ export class Repository {
     this.dailyNotes = new Map(); // `${accountId}::${date}` → { note, updatedAt }
     this.tradeTags = new Map(); // `${accountId}::${signature}` → tags[] (durable)
     this.tradeRisk = new Map(); // `${accountId}::${signature}` → riskAmount (durable)
+    this.tradeNotes = new Map(); // `${accountId}::${signature}` → note (durable)
   }
 
   /**
@@ -175,7 +176,9 @@ export class Repository {
       const tags = storedTags ? [...storedTags] : trade.tags || [];
       const storedRisk = this.tradeRisk.get(sigKey);
       const riskAmount = storedRisk !== undefined ? storedRisk : trade.riskAmount || 0;
-      this.trades.set(id, { ...trade, id, accountId: account.id, tags, riskAmount });
+      const storedNote = this.tradeNotes.get(sigKey);
+      const note = storedNote !== undefined ? storedNote : trade.note || '';
+      this.trades.set(id, { ...trade, id, accountId: account.id, tags, riskAmount, note });
     }
     return { executions: executions.length, trades: trades.length };
   }
@@ -219,6 +222,21 @@ export class Repository {
     const key = `${trade.accountId}::${this.tradeSignature(trade)}`;
     if (clean === 0) this.tradeRisk.delete(key);
     else this.tradeRisk.set(key, clean);
+    return trade;
+  }
+
+  /** Set a trade's journal note, persisted durably by signature (empty clears). */
+  updateTradeNote(userId, tradeId, note) {
+    const trade = this.getTrade(userId, tradeId);
+    const text = String(note ?? '');
+    const key = `${trade.accountId}::${this.tradeSignature(trade)}`;
+    if (text.trim() === '') {
+      this.tradeNotes.delete(key);
+      trade.note = '';
+    } else {
+      this.tradeNotes.set(key, text);
+      trade.note = text;
+    }
     return trade;
   }
 

@@ -494,6 +494,29 @@ describe('trade tagging', () => {
     expect(trades.find((t) => t.symbol === 'AAPL').riskAmount).toBe(149);
   });
 
+  it('saves a per-trade note that survives a re-import', async () => {
+    const user = await registerUser('tradenote@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    let trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aapl = trades.find((t) => t.symbol === 'AAPL');
+
+    const patch = await request(app)
+      .patch(`/api/trades/${aapl.id}`)
+      .set(h)
+      .send({ note: 'Entered late, still worked.' });
+    expect(patch.body.trade.note).toBe('Entered late, still worked.');
+
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(trades.find((t) => t.symbol === 'AAPL').note).toBe('Entered late, still worked.');
+
+    // Clearing removes it
+    const cleared = await request(app).patch(`/api/trades/${trades.find((t) => t.symbol === 'AAPL').id}`).set(h).send({ note: '  ' });
+    expect(cleared.body.trade.note).toBe('');
+  });
+
   it('de-duplicates tags', async () => {
     const user = await registerUser('dupetags@example.com');
     const acct = await createAccount(user.token);
