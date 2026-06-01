@@ -21,6 +21,7 @@ export default function App() {
   const [equityCurve, setEquityCurve] = useState([]);
   const [drawdownCurve, setDrawdownCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [playbook, setPlaybook] = useState(null);
   const [yearHeatmap, setYearHeatmap] = useState(null);
   const [yearCursor, setYearCursor] = useState(() => new Date().getFullYear());
   const [view, setView] = useState('dashboard');
@@ -56,11 +57,12 @@ export default function App() {
   // the calendar stays month-navigated.
   const refreshDashboard = useCallback(async (accountId, cur, range = {}, pnlBasis = 'net') => {
     if (!accountId) return;
-    const [m, t, c, a] = await Promise.all([
+    const [m, t, c, a, p] = await Promise.all([
       api.getMetrics(accountId, { ...range, basis: pnlBasis }),
       api.getTrades(accountId, range),
       api.getCalendar(accountId, cur.year, cur.month, pnlBasis),
       api.getAnalytics(accountId, { ...range, basis: pnlBasis }),
+      api.getPlaybook(accountId, { ...range, basis: pnlBasis }),
     ]);
     setMetrics(m.metrics);
     setScore(m.score || null);
@@ -70,6 +72,7 @@ export default function App() {
     setCalendar(c.calendar);
     setNotedDays(c.notedDays || []);
     setAnalytics(a.analytics);
+    setPlaybook(p.playbook || []);
   }, []);
 
   useEffect(() => {
@@ -104,6 +107,7 @@ export default function App() {
     setEquityCurve([]);
     setDrawdownCurve([]);
     setAnalytics(null);
+    setPlaybook(null);
     setTrades([]);
     setCalendar(null);
     setNotedDays([]);
@@ -139,6 +143,17 @@ export default function App() {
   const onTradeNote = async (id, note) => {
     const { trade } = await api.setTradeNote(id, note);
     applyTradeUpdate(trade);
+  };
+
+  const onSetup = async (id, setup) => {
+    const { trade } = await api.setTradeSetup(id, setup);
+    applyTradeUpdate(trade);
+    // The playbook breakdown depends on setups; refresh it (scoped) in the background.
+    if (activeId) {
+      api.getPlaybook(activeId, { ...periodRange(period), basis })
+        .then((p) => setPlaybook(p.playbook || []))
+        .catch(() => {});
+    }
   };
 
   const openDay = useCallback(async (date) => {
@@ -326,6 +341,7 @@ export default function App() {
                   onTag={onTag}
                   onRisk={onRisk}
                   onTradeNote={onTradeNote}
+                  onSetup={onSetup}
                   onManageTags={isAll ? undefined : () => setShowTagManager(true)}
                   filter={tradeFilter}
                   onFilterChange={setTradeFilter}
@@ -334,6 +350,7 @@ export default function App() {
             ) : (
               <Reports
                 analytics={analytics}
+                playbook={playbook}
                 drawdownCurve={drawdownCurve}
                 onDrill={drillToTrades}
                 yearHeatmap={yearHeatmap}
@@ -353,6 +370,7 @@ export default function App() {
           onTag={onTag}
           onRisk={onRisk}
           onTradeNote={onTradeNote}
+                  onSetup={onSetup}
           onSaveNote={saveDayNote}
         />
       )}

@@ -55,9 +55,14 @@ export class SqliteRepository {
       );
       CREATE TABLE IF NOT EXISTS trade_attrs (
         accountId TEXT NOT NULL, signature TEXT NOT NULL,
-        tags TEXT, risk REAL, note TEXT, PRIMARY KEY (accountId, signature)
+        tags TEXT, risk REAL, note TEXT, setup TEXT, PRIMARY KEY (accountId, signature)
       );
     `);
+    // Additive migration: ensure `setup` exists on databases created before it.
+    const cols = this.db.prepare('PRAGMA table_info(trade_attrs)').all().map((c) => c.name);
+    if (!cols.includes('setup')) {
+      this.db.exec('ALTER TABLE trade_attrs ADD COLUMN setup TEXT');
+    }
   }
 
   tradeSignature(trade) {
@@ -171,7 +176,8 @@ export class SqliteRepository {
         const tags = attr && attr.tags != null ? JSON.parse(attr.tags) : trade.tags || [];
         const riskAmount = attr && attr.risk != null ? attr.risk : trade.riskAmount || 0;
         const note = attr && attr.note != null ? attr.note : trade.note || '';
-        const stored = { ...trade, id, accountId: account.id, tags, riskAmount, note };
+        const setup = attr && attr.setup != null ? attr.setup : trade.setup || '';
+        const stored = { ...trade, id, accountId: account.id, tags, riskAmount, note, setup };
         insTrade.run(id, account.id, trade.closedAt || null, sig, JSON.stringify(stored));
       }
       tx.exec('COMMIT');
@@ -215,14 +221,15 @@ export class SqliteRepository {
     this.db.prepare('UPDATE trades SET data = ? WHERE id = ?').run(JSON.stringify(trade), trade.id);
   }
 
-  #upsertAttr(accountId, signature, { tags, risk, note }) {
+  #upsertAttr(accountId, signature, { tags, risk, note, setup }) {
     this.db.prepare(`
-      INSERT INTO trade_attrs (accountId, signature, tags, risk, note) VALUES (?, ?, ?, ?, ?)
+      INSERT INTO trade_attrs (accountId, signature, tags, risk, note, setup) VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(accountId, signature) DO UPDATE SET
         tags = COALESCE(excluded.tags, trade_attrs.tags),
         risk = COALESCE(excluded.risk, trade_attrs.risk),
-        note = COALESCE(excluded.note, trade_attrs.note)
-    `).run(accountId, signature, tags ?? null, risk ?? null, note ?? null);
+        note = COALESCE(excluded.note, trade_attrs.note),
+        setup = COALESCE(excluded.setup, trade_attrs.setup)
+    `).run(accountId, signature, tags ?? null, risk ?? null, note ?? null, setup ?? null);
   }
 
   updateTradeTags(userId, tradeId, tags) {
@@ -251,6 +258,15 @@ export class SqliteRepository {
     trade.note = text.trim() === '' ? '' : text;
     this.#saveTrade(trade);
     this.#upsertAttr(trade.accountId, tradeSignature(trade), { note: trade.note });
+    return trade;
+  }
+
+  updateTradeSetup(userId, tradeId, setup) {
+    const trade = this.getTrade(userId, tradeId);
+    trade.setup = String(setup ?? '').trim();
+    this.#saveTrade(trade);
+    // Store '' (not null) so COALESCE can't resurrect a previous setup on re-import.
+    this.#upsertAttr(trade.accountId, tradeSignature(trade), { setup: trade.setup });
     return trade;
   }
 

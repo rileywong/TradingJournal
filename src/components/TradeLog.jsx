@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import TradesTable from './TradesTable.jsx';
-import { filterTrades, distinctSymbols, distinctTags } from '../../core/filters.js';
+import { filterTrades, distinctSymbols, distinctTags, distinctSetups } from '../../core/filters.js';
 import { tradesToCsv } from '../../core/export.js';
 
 function downloadCsv(trades) {
@@ -17,7 +17,7 @@ function downloadCsv(trades) {
 
 // Date scoping is owned by the dashboard period selector; the in-log filter
 // covers the categorical dimensions.
-export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '' };
+export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '', setup: '' };
 
 /**
  * Trade log with a filter bar. Controlled: the parent owns the `filter` so other
@@ -25,12 +25,13 @@ export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '' };
  * shared core `filterTrades`, matching GET /api/trades semantics without a
  * round-trip.
  */
-export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onManageTags, filter = EMPTY_FILTER, onFilterChange }) {
+export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onSetup, onManageTags, filter = EMPTY_FILTER, onFilterChange }) {
   const f = filter;
   const setFilter = onFilterChange || (() => {});
 
   const symbols = useMemo(() => distinctSymbols(trades), [trades]);
   const tags = useMemo(() => distinctTags(trades), [trades]);
+  const setups = useMemo(() => distinctSetups(trades), [trades]);
   const filtered = useMemo(() => filterTrades(trades, f), [trades, f]);
 
   const set = (key) => (e) => setFilter({ ...f, [key]: e.target.value });
@@ -58,6 +59,12 @@ export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onManageT
           <option value="">All tags</option>
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
+        {setups.length > 0 && (
+          <select value={f.setup} onChange={set('setup')} aria-label="Filter by setup">
+            <option value="">All setups</option>
+            {setups.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        )}
         <span className="filter-count muted">
           {filtered.length} of {trades.length}
         </span>
@@ -78,7 +85,7 @@ export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onManageT
           Export CSV
         </button>
       </div>
-      <TradesTable trades={filtered} onTag={onTag} onRisk={onRisk} onTradeNote={onTradeNote} />
+      <TradesTable trades={filtered} onTag={onTag} onRisk={onRisk} onTradeNote={onTradeNote} onSetup={onSetup} setups={setups} />
     </div>
   );
 }

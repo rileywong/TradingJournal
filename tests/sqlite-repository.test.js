@@ -66,12 +66,27 @@ describe('SqliteRepository — import, durability, aggregation', () => {
     repo.updateTradeRisk(u.id, t.id, 50);
     repo.updateTradeNote(u.id, t.id, 'clean A+');
 
+    repo.updateTradeSetup(u.id, t.id, 'Opening Range Breakout');
+
     // Re-import the same trade (regenerates rows) — annotations must carry over.
     repo.saveImport(u.id, a.id, [], [trade()]);
     const [after] = repo.listTrades(u.id, a.id);
     expect(after.tags).toEqual(['breakout']);
     expect(after.riskAmount).toBe(50);
     expect(after.note).toBe('clean A+');
+    expect(after.setup).toBe('Opening Range Breakout');
+  });
+
+  it('clears a setup and the cleared state survives re-import', () => {
+    const u = repo.createUser('clearsetup@b.com', 'secret123');
+    const a = repo.createAccount(u.id, { name: 'A' });
+    repo.saveImport(u.id, a.id, [], [trade()]);
+    let [t] = repo.listTrades(u.id, a.id);
+    repo.updateTradeSetup(u.id, t.id, 'ORB');
+    repo.updateTradeSetup(u.id, t.id, '   '); // clear
+    repo.saveImport(u.id, a.id, [], [trade()]);
+    [t] = repo.listTrades(u.id, a.id);
+    expect(t.setup).toBe('');
   });
 
   it('lists trades sorted by closedAt and aggregates across accounts', () => {

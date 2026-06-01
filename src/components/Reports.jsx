@@ -81,7 +81,7 @@ function BreakdownTable({ title, rows, keyLabel, onRowClick, isRowClickable = ()
  * Reports view — TradeZella-style performance breakdowns.
  * Props: analytics (from GET /api/analytics).
  */
-export default function Reports({ analytics, drawdownCurve, onDrill, yearHeatmap, onPrevYear, onNextYear }) {
+export default function Reports({ analytics, playbook, drawdownCurve, onDrill, yearHeatmap, onPrevYear, onNextYear }) {
   if (!analytics) return <div className="empty-state">Loading reports…</div>;
   const { streaks, holdTime, winLoss } = analytics;
 
@@ -178,11 +178,80 @@ export default function Reports({ analytics, drawdownCurve, onDrill, yearHeatmap
         <BreakdownTable title="By Day of Week" rows={analytics.byDayOfWeek} keyLabel="Weekday" />
         <BreakdownTable title="By Hour of Day" rows={analytics.byHourOfDay} keyLabel="Hour" />
         <BreakdownTable
-          title="By Tag / Setup" rows={analytics.byTag} keyLabel="Tag"
+          title="By Tag" rows={analytics.byTag} keyLabel="Tag"
           onRowClick={onDrill && ((r) => onDrill({ tag: r.key }))}
           isRowClickable={(r) => r.key !== 'Untagged'}
         />
       </div>
+
+      <div className="section-title">Setup Playbook</div>
+      <PlaybookTable rows={playbook} onDrill={onDrill} />
     </>
+  );
+}
+
+/**
+ * Per-strategy performance with expectancy and average R — the table that tells
+ * you which setups actually carry an edge. Rows come from GET /api/playbook.
+ */
+function PlaybookTable({ rows, onDrill }) {
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="card report-card">
+        <div className="empty-state">
+          No setups assigned yet. Tag trades with a setup in the trade log to build your playbook.
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="card report-card">
+      <h3>
+        Performance by setup
+        {onDrill && <span className="muted report-hint"> · click to filter</span>}
+      </h3>
+      <table className="report-table">
+        <thead>
+          <tr>
+            <th>Setup</th>
+            <th style={{ textAlign: 'right' }}>Trades</th>
+            <th style={{ textAlign: 'right' }}>Win%</th>
+            <th style={{ textAlign: 'right' }}>PF</th>
+            <th style={{ textAlign: 'right' }}>Expectancy</th>
+            <th style={{ textAlign: 'right' }}>Avg R</th>
+            <th style={{ textAlign: 'right' }}>Net P&amp;L</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const clickable = Boolean(onDrill) && r.setup !== 'Unassigned';
+            return (
+              <tr
+                key={r.setup}
+                className={clickable ? 'report-row-clickable' : undefined}
+                onClick={clickable ? () => onDrill({ setup: r.setup }) : undefined}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDrill({ setup: r.setup }); } } : undefined}
+              >
+                <td className="sym">{r.setup}</td>
+                <td style={{ textAlign: 'right' }}>{r.trades}</td>
+                <td style={{ textAlign: 'right' }}>{fmtPct(r.winRate)}</td>
+                <td style={{ textAlign: 'right' }}>{fmtPf(r.profitFactor)}</td>
+                <td style={{ textAlign: 'right' }} className={r.expectancy > 0 ? 'pos' : r.expectancy < 0 ? 'neg' : 'muted'}>
+                  {fmtMoney(r.expectancy)}
+                </td>
+                <td style={{ textAlign: 'right' }} className={r.avgR > 0 ? 'pos' : r.avgR < 0 ? 'neg' : 'muted'}>
+                  {r.avgR === null || r.avgR === undefined ? '—' : `${r.avgR.toFixed(2)}R`}
+                </td>
+                <td style={{ textAlign: 'right' }} className={r.netPnl > 0 ? 'pos' : r.netPnl < 0 ? 'neg' : 'muted'}>
+                  <strong>{fmtMoney(r.netPnl)}</strong>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

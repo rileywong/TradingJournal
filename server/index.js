@@ -20,6 +20,7 @@ import {
   isValidDateKey,
 } from '../core/day.js';
 import { buildAnalytics } from '../core/analytics.js';
+import { buildPlaybook, listSetups } from '../core/playbook.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
@@ -180,22 +181,23 @@ export function createApp(repo = new Repository()) {
 
   // --- analytics ---------------------------------------------------------
   app.get('/api/trades', auth, wrap((req, res) => {
-    const { accountId, symbol, side, tag, outcome, from, to } = req.query;
+    const { accountId, symbol, side, tag, setup, outcome, from, to } = req.query;
     // Date-range bounds are compared lexically, so reject non-canonical keys
     // rather than silently mis-filtering.
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
     }
     const { trades } = scopeTrades(req.userId, accountId);
-    res.json({ trades: filterTrades(trades, { symbol, side, tag, outcome, from, to }) });
+    res.json({ trades: filterTrades(trades, { symbol, side, tag, setup, outcome, from, to }) });
   }));
 
   app.patch('/api/trades/:id', auth, wrap((req, res) => {
-    const { tags, riskAmount, note } = req.body || {};
+    const { tags, riskAmount, note, setup } = req.body || {};
     let trade;
     if (tags !== undefined) trade = repo.updateTradeTags(req.userId, req.params.id, tags);
     if (riskAmount !== undefined) trade = repo.updateTradeRisk(req.userId, req.params.id, riskAmount);
     if (note !== undefined) trade = repo.updateTradeNote(req.userId, req.params.id, note);
+    if (setup !== undefined) trade = repo.updateTradeSetup(req.userId, req.params.id, setup);
     if (!trade) trade = repo.getTrade(req.userId, req.params.id);
     res.json({ trade });
   }));
@@ -276,6 +278,17 @@ export function createApp(repo = new Repository()) {
     const { trades: all } = scopeTrades(req.userId, accountId);
     const trades = projectBasis(filterTrades(all, { from, to }), normalizeBasis(req.query.basis));
     res.json({ analytics: buildAnalytics(trades) });
+  }));
+
+  // Setup playbook: per-strategy performance breakdown (scope/period/basis aware).
+  app.get('/api/playbook', auth, wrap((req, res) => {
+    const { accountId, from, to } = req.query;
+    if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
+      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    }
+    const { trades: all } = scopeTrades(req.userId, accountId);
+    const trades = projectBasis(filterTrades(all, { from, to }), normalizeBasis(req.query.basis));
+    res.json({ playbook: buildPlaybook(trades), setups: listSetups(trades) });
   }));
 
   // Serve the built frontend (single-process production/preview mode) when a

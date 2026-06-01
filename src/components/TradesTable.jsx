@@ -22,6 +22,7 @@ const COLUMNS = [
   { key: 'closedAt', label: 'Closed' },
   { key: 'netPnl', label: 'Net P&L', num: true },
   { key: 'risk', label: 'Risk / R', num: true, sortable: false },
+  { key: 'setup', label: 'Setup', sortable: false },
   { key: 'tags', label: 'Tags', sortable: false },
 ];
 
@@ -30,11 +31,12 @@ function rMultiple(t) {
   return Number.isFinite(risk) && risk > 0 ? t.netPnl / risk : null;
 }
 
-export default function TradesTable({ trades, onTag, onRisk, onTradeNote }) {
+export default function TradesTable({ trades, onTag, onRisk, onTradeNote, onSetup, setups = [] }) {
   const [sortKey, setSortKey] = useState('closedAt');
   const [sortDir, setSortDir] = useState('desc');
   const [adding, setAdding] = useState(null);
   const [editingRisk, setEditingRisk] = useState(null);
+  const [editingSetup, setEditingSetup] = useState(null);
   const [noteOpen, setNoteOpen] = useState(null);
   // Set when Escape cancels an inline input, so the resulting blur doesn't commit.
   const cancelNextBlur = useRef(false);
@@ -77,6 +79,12 @@ export default function TradesTable({ trades, onTag, onRisk, onTradeNote }) {
     if (next === (trade.riskAmount || 0)) return;
     if (onRisk) onRisk(trade.id, next);
   };
+  const commitSetup = (trade, raw) => {
+    setEditingSetup(null);
+    const next = (raw || '').trim();
+    if (next === (trade.setup || '')) return;
+    if (onSetup) onSetup(trade.id, next);
+  };
 
   const removeTag = (trade, tag) => {
     onTag(trade.id, trade.tags.filter((t) => t !== tag));
@@ -94,6 +102,9 @@ export default function TradesTable({ trades, onTag, onRisk, onTradeNote }) {
     <div className="card">
       <datalist id="preset-tags">
         {PRESET_TAGS.map((p) => <option key={p} value={p} />)}
+      </datalist>
+      <datalist id="setup-list">
+        {setups.map((s) => <option key={s} value={s} />)}
       </datalist>
       <table>
         <thead>
@@ -159,6 +170,34 @@ export default function TradesTable({ trades, onTag, onRisk, onTradeNote }) {
                         </>
                       );
                     })()}
+                  </button>
+                )}
+              </td>
+              <td>
+                {editingSetup === t.id ? (
+                  <input
+                    autoFocus
+                    list="setup-list"
+                    className="setup-input"
+                    placeholder="Strategy…"
+                    defaultValue={t.setup || ''}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
+                      else if (e.key === 'Escape') { cancelNextBlur.current = true; e.currentTarget.blur(); }
+                    }}
+                    onBlur={(e) => {
+                      if (cancelNextBlur.current) { cancelNextBlur.current = false; setEditingSetup(null); return; }
+                      commitSetup(t, e.target.value);
+                    }}
+                  />
+                ) : (
+                  <button
+                    className={`setup-btn ${t.setup ? 'has-setup' : ''}`}
+                    onClick={() => onSetup && setEditingSetup(t.id)}
+                    title={t.setup ? 'Change setup' : 'Assign a setup'}
+                    disabled={!onSetup}
+                  >
+                    {t.setup ? t.setup : <span className="muted">+ setup</span>}
                   </button>
                 )}
               </td>

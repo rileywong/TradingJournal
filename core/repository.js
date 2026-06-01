@@ -23,6 +23,7 @@ export class Repository {
     this.tradeTags = new Map(); // `${accountId}::${signature}` → tags[] (durable)
     this.tradeRisk = new Map(); // `${accountId}::${signature}` → riskAmount (durable)
     this.tradeNotes = new Map(); // `${accountId}::${signature}` → note (durable)
+    this.tradeSetups = new Map(); // `${accountId}::${signature}` → setup (durable)
   }
 
   /**
@@ -143,6 +144,9 @@ export class Repository {
     for (const key of this.tradeTags.keys()) {
       if (key.startsWith(prefix)) this.tradeTags.delete(key);
     }
+    for (const key of this.tradeSetups.keys()) {
+      if (key.startsWith(prefix)) this.tradeSetups.delete(key);
+    }
     this.accounts.delete(accountId);
     return { deleted: true };
   }
@@ -178,7 +182,9 @@ export class Repository {
       const riskAmount = storedRisk !== undefined ? storedRisk : trade.riskAmount || 0;
       const storedNote = this.tradeNotes.get(sigKey);
       const note = storedNote !== undefined ? storedNote : trade.note || '';
-      this.trades.set(id, { ...trade, id, accountId: account.id, tags, riskAmount, note });
+      const storedSetup = this.tradeSetups.get(sigKey);
+      const setup = storedSetup !== undefined ? storedSetup : trade.setup || '';
+      this.trades.set(id, { ...trade, id, accountId: account.id, tags, riskAmount, note, setup });
     }
     return { executions: executions.length, trades: trades.length };
   }
@@ -247,6 +253,21 @@ export class Repository {
     } else {
       this.tradeNotes.set(key, text);
       trade.note = text;
+    }
+    return trade;
+  }
+
+  /** Assign a trade's setup/strategy, persisted durably by signature (empty clears). */
+  updateTradeSetup(userId, tradeId, setup) {
+    const trade = this.getTrade(userId, tradeId);
+    const text = String(setup ?? '').trim();
+    const key = `${trade.accountId}::${this.tradeSignature(trade)}`;
+    if (text === '') {
+      this.tradeSetups.delete(key);
+      trade.setup = '';
+    } else {
+      this.tradeSetups.set(key, text);
+      trade.setup = text;
     }
     return trade;
   }

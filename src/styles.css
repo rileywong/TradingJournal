@@ -219,6 +219,11 @@ tbody tr:hover { background: var(--surface-2); }
 .risk-btn { background: transparent; border: none; padding: 2px 4px; font: inherit; font-size: 12px; cursor: pointer; color: var(--text); }
 .risk-btn:hover { background: var(--surface-2); border-radius: 6px; }
 .risk-input { font: inherit; font-size: 12px; padding: 3px 6px; width: 78px; text-align: right; border: 1px solid var(--accent); border-radius: 6px; outline: none; box-shadow: 0 0 0 3px var(--accent-bg); }
+.setup-btn { background: transparent; border: 1px dashed var(--border); padding: 3px 8px; font: inherit; font-size: 12px; cursor: pointer; color: var(--text); border-radius: 6px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.setup-btn.has-setup { border-style: solid; border-color: var(--accent); color: var(--accent); font-weight: 600; background: var(--accent-bg); }
+.setup-btn:hover:not(:disabled) { border-color: var(--accent); }
+.setup-btn:disabled { cursor: default; }
+.setup-input { font: inherit; font-size: 12px; padding: 3px 8px; width: 150px; border: 1px solid var(--accent); border-radius: 6px; outline: none; box-shadow: 0 0 0 3px var(--accent-bg); }
 .note-toggle { background: transparent; color: var(--muted); font-size: 11px; padding: 2px 6px; border: 1px dashed var(--border); border-radius: 999px; cursor: pointer; }
 .note-toggle:hover { color: var(--accent); border-color: var(--accent); }
 .note-toggle.has-note { color: var(--accent); border-style: solid; border-color: var(--accent-bg); }

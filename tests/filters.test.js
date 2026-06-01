@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { filterTrades, distinctSymbols, distinctTags } from '../core/filters.js';
+import { filterTrades, distinctSymbols, distinctTags, distinctSetups } from '../core/filters.js';
 
 const trades = [
   { symbol: 'AAPL', side: 'LONG', netPnl: 100, tags: ['Breakout'], closedAt: '2024-03-04T10:00:00' },
@@ -49,5 +49,20 @@ describe('distinctSymbols / distinctTags', () => {
   });
   it('lists sorted distinct tags', () => {
     expect(distinctTags(trades)).toEqual(['Breakout', 'News']);
+  });
+});
+
+describe('setup filtering', () => {
+  const trades = [
+    { symbol: 'AAPL', side: 'LONG', netPnl: 1, tags: [], setup: 'ORB', closedAt: '2024-03-04T14:00:00Z' },
+    { symbol: 'TSLA', side: 'SHORT', netPnl: -1, tags: [], setup: 'VWAP', closedAt: '2024-03-05T14:00:00Z' },
+    { symbol: 'NVDA', side: 'LONG', netPnl: 2, tags: [], setup: '', closedAt: '2024-03-06T14:00:00Z' },
+  ];
+  it('filters by exact setup', () => {
+    expect(filterTrades(trades, { setup: 'ORB' }).map((t) => t.symbol)).toEqual(['AAPL']);
+    expect(filterTrades(trades, { setup: 'VWAP' })).toHaveLength(1);
+  });
+  it('lists sorted distinct non-blank setups', () => {
+    expect(distinctSetups(trades)).toEqual(['ORB', 'VWAP']);
   });
 });

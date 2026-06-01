@@ -68,12 +68,14 @@ export const api = {
   tagTrade: (id, tags) => request(`/trades/${id}`, { method: 'PATCH', body: { tags } }),
   setTradeRisk: (id, riskAmount) => request(`/trades/${id}`, { method: 'PATCH', body: { riskAmount } }),
   setTradeNote: (id, note) => request(`/trades/${id}`, { method: 'PATCH', body: { note } }),
+  setTradeSetup: (id, setup) => request(`/trades/${id}`, { method: 'PATCH', body: { setup } }),
   getMetrics: (accountId, range = {}) => request(`/metrics?accountId=${accountId}${qs(range)}`),
   getCalendar: (accountId, year, month, basis) =>
     request(`/calendar?accountId=${accountId}&year=${year}&month=${month}${qs({ basis })}`),
   getDay: (accountId, date) =>
     request(`/day?accountId=${accountId}&date=${date}`),
   getAnalytics: (accountId, range = {}) => request(`/analytics?accountId=${accountId}${qs(range)}`),
+  getPlaybook: (accountId, range = {}) => request(`/playbook?accountId=${accountId}${qs(range)}`),
   getYear: (accountId, year, basis) =>
     request(`/year?accountId=${accountId}&year=${year}${qs({ basis })}`),
   setDayNote: (accountId, date, note) =>

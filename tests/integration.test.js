@@ -972,3 +972,42 @@ describe('options & futures import (contract multipliers)', () => {
     expect(res.body.metrics.netPnl).toBe(100); // (110-100)*1*10
   });
 });
+
+describe('setup playbook', () => {
+  it('assigns setups, reports per-strategy stats, and filters by setup', async () => {
+    const user = await registerUser('playbook@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    const trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aapl = trades.find((t) => t.symbol === 'AAPL');
+    const tsla = trades.find((t) => t.symbol === 'TSLA');
+
+    await request(app).patch(`/api/trades/${aapl.id}`).set(h).send({ setup: 'Opening Range Breakout' });
+    await request(app).patch(`/api/trades/${tsla.id}`).set(h).send({ setup: 'VWAP Reversion' });
+
+    const pb = (await request(app).get(`/api/playbook?accountId=${acct.id}`).set(h)).body;
+    expect(pb.setups).toEqual(['Opening Range Breakout', 'VWAP Reversion']);
+    const orb = pb.playbook.find((r) => r.setup === 'Opening Range Breakout');
+    expect(orb).toMatchObject({ trades: 1, netPnl: 298 });
+
+    // Filter the trade log by setup
+    const filtered = (await request(app).get(`/api/trades?accountId=${acct.id}&setup=VWAP Reversion`).set(h)).body.trades;
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].symbol).toBe('TSLA');
+  });
+
+  it('setup assignment survives a re-import (durable by signature)', async () => {
+    const user = await registerUser('playbookdur@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    let trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    const aapl = trades.find((t) => t.symbol === 'AAPL');
+    await request(app).patch(`/api/trades/${aapl.id}`).set(h).send({ setup: 'Gap and Go' });
+
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(trades.find((t) => t.symbol === 'AAPL').setup).toBe('Gap and Go');
+  });
+});
