@@ -8,6 +8,7 @@ import {
   byTag,
   holdTimeStats,
   streaks,
+  winLossComparison,
   buildAnalytics,
 } from '../core/analytics.js';
 
@@ -145,6 +146,27 @@ describe('streaks', () => {
 
   it('returns zeros for no trades', () => {
     expect(streaks([])).toEqual({ longestWin: 0, longestLoss: 0, current: 0 });
+  });
+});
+
+describe('winLossComparison', () => {
+  it('compares winners and losers and computes the payoff ratio', () => {
+    const c = winLossComparison([
+      trade({ netPnl: 100, openedAt: '2024-03-04T10:00:00Z', closedAt: '2024-03-04T10:20:00Z' }),
+      trade({ netPnl: 60, openedAt: '2024-03-04T11:00:00Z', closedAt: '2024-03-04T11:10:00Z' }),
+      trade({ netPnl: -40, openedAt: '2024-03-04T12:00:00Z', closedAt: '2024-03-04T12:30:00Z' }),
+    ]);
+    expect(c.winners.count).toBe(2);
+    expect(c.winners.total).toBe(160);
+    expect(c.winners.avg).toBe(80);
+    expect(c.winners.largest).toBe(100);
+    expect(c.losers.count).toBe(1);
+    expect(c.losers.avg).toBe(-40);
+    expect(c.payoffRatio).toBe(2); // 80 / 40
+  });
+
+  it('reports Infinity payoff with wins but no losses', () => {
+    expect(winLossComparison([trade({ netPnl: 10 })]).payoffRatio).toBe(Infinity);
   });
 });
 

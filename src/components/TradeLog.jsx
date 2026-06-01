@@ -1,6 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import TradesTable from './TradesTable.jsx';
 import { filterTrades, distinctSymbols, distinctTags } from '../../core/filters.js';
+import { tradesToCsv } from '../../core/export.js';
+
+function downloadCsv(trades) {
+  const blob = new Blob([tradesToCsv(trades)], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `trades-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 const EMPTY = { symbol: '', side: '', outcome: '', tag: '', from: '', to: '' };
 
@@ -49,6 +62,14 @@ export default function TradeLog({ trades, onTag }) {
         {active && (
           <button className="btn-ghost" onClick={() => setF(EMPTY)}>Clear</button>
         )}
+        <button
+          className="btn-ghost"
+          onClick={() => downloadCsv(filtered)}
+          disabled={filtered.length === 0}
+          title="Export the filtered trades to CSV"
+        >
+          Export CSV
+        </button>
       </div>
       <TradesTable trades={filtered} onTag={onTag} />
     </div>

@@ -155,10 +155,38 @@ export function streaks(trades) {
   return { longestWin, longestLoss, current };
 }
 
+/**
+ * Side-by-side winners vs losers comparison (count, total, average, average
+ * hold, and the largest single outcome), plus the payoff ratio (avg win / avg
+ * loss). Infinity payoff when there are wins but no losses.
+ */
+export function winLossComparison(trades) {
+  const minutes = (t) =>
+    Math.max(0, (new Date(t.closedAt).getTime() - new Date(t.openedAt).getTime()) / 60000);
+  const side = (arr) => {
+    const total = round2(arr.reduce((s, t) => s + t.netPnl, 0));
+    const largest = arr.reduce((m, t) => (Math.abs(t.netPnl) > Math.abs(m) ? t.netPnl : m), 0);
+    return {
+      count: arr.length,
+      total,
+      avg: arr.length ? round2(total / arr.length) : 0,
+      avgHoldMinutes: arr.length ? round2(arr.reduce((s, t) => s + minutes(t), 0) / arr.length) : 0,
+      largest: round2(largest),
+    };
+  };
+  const winners = side(trades.filter((t) => t.netPnl > 0));
+  const losers = side(trades.filter((t) => t.netPnl < 0));
+  let payoffRatio;
+  if (losers.avg === 0) payoffRatio = winners.avg > 0 ? Infinity : 0;
+  else payoffRatio = round2(Math.abs(winners.avg / losers.avg));
+  return { winners, losers, payoffRatio };
+}
+
 /** Full analytics payload for the Reports view. */
 export function buildAnalytics(trades) {
   return {
     overall: summarize(trades),
+    winLoss: winLossComparison(trades),
     bySymbol: bySymbol(trades),
     bySide: bySide(trades),
     byDayOfWeek: byDayOfWeek(trades),

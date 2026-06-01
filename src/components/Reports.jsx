@@ -68,7 +68,7 @@ function BreakdownTable({ title, rows, keyLabel }) {
  */
 export default function Reports({ analytics, drawdownCurve }) {
   if (!analytics) return <div className="empty-state">Loading reports…</div>;
-  const { streaks, holdTime } = analytics;
+  const { streaks, holdTime, winLoss } = analytics;
 
   if (analytics.overall.trades === 0) {
     return <div className="card"><div className="empty-state">No trades yet. Import a brokerage CSV to unlock reports.</div></div>;
@@ -101,6 +101,34 @@ export default function Reports({ analytics, drawdownCurve }) {
           </div>
         ))}
       </div>
+
+      {winLoss && (
+        <>
+          <div className="section-title">Winners vs Losers</div>
+          <div className="card winloss-card">
+            <table className="report-table winloss-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th style={{ textAlign: 'right' }} className="pos">Winners</th>
+                  <th style={{ textAlign: 'right' }} className="neg">Losers</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Count</td><td style={{ textAlign: 'right' }}>{winLoss.winners.count}</td><td style={{ textAlign: 'right' }}>{winLoss.losers.count}</td></tr>
+                <tr><td>Total P&amp;L</td><td style={{ textAlign: 'right' }} className="pos">{fmtMoney(winLoss.winners.total)}</td><td style={{ textAlign: 'right' }} className="neg">{fmtMoney(winLoss.losers.total)}</td></tr>
+                <tr><td>Average</td><td style={{ textAlign: 'right' }} className="pos">{fmtMoney(winLoss.winners.avg)}</td><td style={{ textAlign: 'right' }} className="neg">{fmtMoney(winLoss.losers.avg)}</td></tr>
+                <tr><td>Largest</td><td style={{ textAlign: 'right' }} className="pos">{fmtMoney(winLoss.winners.largest)}</td><td style={{ textAlign: 'right' }} className="neg">{fmtMoney(winLoss.losers.largest)}</td></tr>
+                <tr><td>Avg Hold</td><td style={{ textAlign: 'right' }}>{fmtDuration(winLoss.winners.avgHoldMinutes)}</td><td style={{ textAlign: 'right' }}>{fmtDuration(winLoss.losers.avgHoldMinutes)}</td></tr>
+              </tbody>
+            </table>
+            <div className="winloss-payoff">
+              Payoff ratio <strong>{fmtPf(winLoss.payoffRatio)}</strong>
+              <span className="muted"> (avg win / avg loss)</span>
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="section-title">Drawdown (Underwater Equity)</div>
       <div className="card" style={{ padding: 14 }}>

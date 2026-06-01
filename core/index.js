@@ -31,8 +31,10 @@ export {
   byTag,
   holdTimeStats,
   streaks,
+  winLossComparison,
   buildAnalytics,
 } from './analytics.js';
+export { tradesToCsv } from './export.js';
 export { computeScore } from './score.js';
 export { filterTrades, distinctSymbols, distinctTags } from './filters.js';
 export {
