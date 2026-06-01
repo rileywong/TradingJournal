@@ -3,7 +3,7 @@ import { api, getStoredUser, clearSession } from './api.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
 import PnlCalendar from './components/PnlCalendar.jsx';
-import TradesTable from './components/TradesTable.jsx';
+import TradeLog from './components/TradeLog.jsx';
 import ImportPanel from './components/ImportPanel.jsx';
 import DayDetail from './components/DayDetail.jsx';
 import EquityChart from './components/EquityChart.jsx';
@@ -216,7 +216,7 @@ export default function App() {
                 </div>
 
                 <div className="section-title">Trade Log</div>
-                <TradesTable trades={trades} onTag={onTag} />
+                <TradeLog trades={trades} onTag={onTag} />
               </>
             ) : (
               <Reports analytics={analytics} />

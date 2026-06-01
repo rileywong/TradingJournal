@@ -234,6 +234,29 @@ describe('day drill-down', () => {
   });
 });
 
+describe('trade log filtering', () => {
+  it('filters trades by query params', async () => {
+    const user = await registerUser('filter@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const all = await request(app).get(`/api/trades?accountId=${acct.id}`).set(h);
+    expect(all.body.trades).toHaveLength(2);
+
+    const aapl = await request(app).get(`/api/trades?accountId=${acct.id}&symbol=aapl`).set(h);
+    expect(aapl.body.trades).toHaveLength(1);
+    expect(aapl.body.trades[0].symbol).toBe('AAPL');
+
+    const shorts = await request(app).get(`/api/trades?accountId=${acct.id}&side=SHORT`).set(h);
+    expect(shorts.body.trades).toHaveLength(1);
+    expect(shorts.body.trades[0].symbol).toBe('TSLA');
+
+    const wins = await request(app).get(`/api/trades?accountId=${acct.id}&outcome=win`).set(h);
+    expect(wins.body.trades).toHaveLength(2); // both round-trips are profitable
+  });
+});
+
 describe('daily journal notes', () => {
   it('saves a note and returns it on the day endpoint', async () => {
     const user = await registerUser('note@example.com');

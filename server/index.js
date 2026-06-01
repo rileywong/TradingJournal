@@ -21,6 +21,7 @@ import {
 } from '../core/day.js';
 import { buildAnalytics } from '../core/analytics.js';
 import { computeScore } from '../core/score.js';
+import { filterTrades } from '../core/filters.js';
 
 export function createApp(repo = new Repository()) {
   const app = express();
@@ -116,8 +117,9 @@ export function createApp(repo = new Repository()) {
 
   // --- analytics ---------------------------------------------------------
   app.get('/api/trades', auth, wrap((req, res) => {
-    const { accountId } = req.query;
-    res.json({ trades: repo.listTrades(req.userId, accountId) });
+    const { accountId, symbol, side, tag, outcome, from, to } = req.query;
+    const trades = repo.listTrades(req.userId, accountId);
+    res.json({ trades: filterTrades(trades, { symbol, side, tag, outcome, from, to }) });
   }));
 
   app.patch('/api/trades/:id', auth, wrap((req, res) => {

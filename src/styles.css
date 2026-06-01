@@ -240,6 +240,15 @@ tbody tr:hover { background: var(--surface-2); }
 .modal h2 { margin: 0 0 16px; font-size: 18px; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
+/* ── Trade log filter bar ─────────────────────────────────────────────── */
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.filter-bar select, .filter-bar input[type="date"] {
+  font: inherit; font-size: 13px; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: var(--text);
+}
+.filter-bar select:focus, .filter-bar input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.filter-count { font-size: 12px; margin-left: auto; font-weight: 600; }
+
 /* ── Score card ───────────────────────────────────────────────────────── */
 .score-card { display: flex; gap: 28px; align-items: center; padding: 20px 22px; margin-bottom: 16px; flex-wrap: wrap; }
 .score-left { display: flex; flex-direction: column; align-items: center; gap: 6px; }

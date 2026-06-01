@@ -1,0 +1,56 @@
+import React, { useMemo, useState } from 'react';
+import TradesTable from './TradesTable.jsx';
+import { filterTrades, distinctSymbols, distinctTags } from '../../core/filters.js';
+
+const EMPTY = { symbol: '', side: '', outcome: '', tag: '', from: '', to: '' };
+
+/**
+ * Trade log with a filter bar. Filtering runs client-side through the shared
+ * core `filterTrades`, so it matches the server's GET /api/trades semantics
+ * exactly without a round-trip.
+ */
+export default function TradeLog({ trades, onTag }) {
+  const [f, setF] = useState(EMPTY);
+
+  const symbols = useMemo(() => distinctSymbols(trades), [trades]);
+  const tags = useMemo(() => distinctTags(trades), [trades]);
+  const filtered = useMemo(() => filterTrades(trades, f), [trades, f]);
+
+  const set = (key) => (e) => setF((prev) => ({ ...prev, [key]: e.target.value }));
+  const active = Object.values(f).some(Boolean);
+
+  return (
+    <div className="trade-log">
+      <div className="filter-bar">
+        <select value={f.symbol} onChange={set('symbol')} aria-label="Filter by symbol">
+          <option value="">All symbols</option>
+          {symbols.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select value={f.side} onChange={set('side')} aria-label="Filter by side">
+          <option value="">Long &amp; Short</option>
+          <option value="LONG">Long</option>
+          <option value="SHORT">Short</option>
+        </select>
+        <select value={f.outcome} onChange={set('outcome')} aria-label="Filter by outcome">
+          <option value="">All outcomes</option>
+          <option value="win">Winners</option>
+          <option value="loss">Losers</option>
+          <option value="breakeven">Breakeven</option>
+        </select>
+        <select value={f.tag} onChange={set('tag')} aria-label="Filter by tag">
+          <option value="">All tags</option>
+          {tags.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <input type="date" value={f.from} onChange={set('from')} aria-label="From date" />
+        <input type="date" value={f.to} onChange={set('to')} aria-label="To date" />
+        <span className="filter-count muted">
+          {filtered.length} of {trades.length}
+        </span>
+        {active && (
+          <button className="btn-ghost" onClick={() => setF(EMPTY)}>Clear</button>
+        )}
+      </div>
+      <TradesTable trades={filtered} onTag={onTag} />
+    </div>
+  );
+}
