@@ -53,6 +53,11 @@ export const api = {
     request('/auth/register', { method: 'POST', body: { email, password }, auth: false }),
   login: (email, password) =>
     request('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
+  authConfig: () => request('/auth/config', { auth: false }),
+  googleLogin: (idToken) =>
+    request('/auth/google', { method: 'POST', body: { idToken }, auth: false }),
+  appleLogin: (idToken) =>
+    request('/auth/apple', { method: 'POST', body: { idToken }, auth: false }),
   listAccounts: () => request('/accounts'),
   createAccount: (body) => request('/accounts', { method: 'POST', body }),
   updateAccount: (id, body) => request(`/accounts/${id}`, { method: 'PATCH', body }),

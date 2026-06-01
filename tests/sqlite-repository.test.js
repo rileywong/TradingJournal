@@ -112,6 +112,28 @@ describe('SqliteRepository — import, durability, aggregation', () => {
   });
 });
 
+describe('SqliteRepository — OAuth identities', () => {
+  it('creates a password-less user and is idempotent per identity', () => {
+    const u1 = repo.upsertOAuthUser({ provider: 'google', sub: 'g-1', email: 'New@B.com' });
+    expect(u1.email).toBe('new@b.com');
+    const u2 = repo.upsertOAuthUser({ provider: 'google', sub: 'g-1', email: 'new@b.com' });
+    expect(u2.id).toBe(u1.id); // same identity → same user
+    // The password-less user cannot be logged in with a password.
+    expect(() => repo.authenticate('new@b.com', 'whatever')).toThrow(/invalid credentials/);
+  });
+
+  it('links a provider identity to an existing email account', () => {
+    const pw = repo.createUser('linked@b.com', 'secret123');
+    const oauthUser = repo.upsertOAuthUser({ provider: 'google', sub: 'g-2', email: 'linked@b.com' });
+    expect(oauthUser.id).toBe(pw.id); // merged onto the existing account
+  });
+
+  it('rejects an unverified provider email', () => {
+    expect(() => repo.upsertOAuthUser({ provider: 'apple', sub: 'a-1', email: 'x@b.com', emailVerified: false }))
+      .toThrow(/not verified/);
+  });
+});
+
 describe('SqliteRepository — daily notes', () => {
   it('upserts, clears, and lists noted days', () => {
     const u = repo.createUser('note@b.com', 'secret123');

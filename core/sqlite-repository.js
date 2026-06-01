@@ -35,6 +35,10 @@ export class SqliteRepository {
         id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL,
         passwordHash TEXT, createdAt TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS oauth_identities (
+        provider TEXT NOT NULL, sub TEXT NOT NULL, userId TEXT NOT NULL,
+        PRIMARY KEY (provider, sub)
+      );
       CREATE TABLE IF NOT EXISTS accounts (
         id TEXT PRIMARY KEY, userId TEXT NOT NULL, name TEXT NOT NULL,
         startingBalance REAL NOT NULL, commissionPerTrade REAL NOT NULL, createdAt TEXT NOT NULL
@@ -97,6 +101,29 @@ export class SqliteRepository {
   getUser(userId) {
     const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     return user ? this.publicUser(user) : null;
+  }
+
+  upsertOAuthUser({ provider, sub, email, emailVerified = true }) {
+    if (!provider || !sub) throw new RepoError('invalid oauth identity', 400);
+    const normEmail = String(email || '').trim().toLowerCase();
+    if (!normEmail || !EMAIL_RE.test(normEmail)) throw new RepoError('invalid email', 400);
+    if (!emailVerified) throw new RepoError('email not verified by provider', 400);
+
+    const link = this.db.prepare('SELECT userId FROM oauth_identities WHERE provider = ? AND sub = ?').get(provider, sub);
+    if (link) {
+      const u = this.db.prepare('SELECT * FROM users WHERE id = ?').get(link.userId);
+      if (u) return this.publicUser(u);
+    }
+
+    let user = this.db.prepare('SELECT * FROM users WHERE email = ?').get(normEmail);
+    if (!user) {
+      user = { id: uuid(), email: normEmail, passwordHash: null, createdAt: new Date().toISOString() };
+      this.db.prepare('INSERT INTO users (id, email, passwordHash, createdAt) VALUES (?, ?, ?, ?)')
+        .run(user.id, user.email, user.passwordHash, user.createdAt);
+    }
+    this.db.prepare('INSERT OR REPLACE INTO oauth_identities (provider, sub, userId) VALUES (?, ?, ?)')
+      .run(provider, sub, user.id);
+    return this.publicUser(user);
   }
 
   publicUser(user) {

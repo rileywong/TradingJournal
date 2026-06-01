@@ -24,6 +24,41 @@ export class Repository {
     this.tradeRisk = new Map(); // `${accountId}::${signature}` → riskAmount (durable)
     this.tradeNotes = new Map(); // `${accountId}::${signature}` → note (durable)
     this.tradeSetups = new Map(); // `${accountId}::${signature}` → setup (durable)
+    this.oauthIdentities = new Map(); // `${provider}:${sub}` → userId
+  }
+
+  /**
+   * Find-or-create a user from a verified OAuth identity. Links to an existing
+   * account with the same email (account takeover by a verified provider email
+   * is the standard SSO merge), else creates a password-less user.
+   * @param {{ provider, sub, email, emailVerified }} identity
+   */
+  upsertOAuthUser({ provider, sub, email, emailVerified = true }) {
+    if (!provider || !sub) throw new RepoError('invalid oauth identity', 400);
+    const normEmail = String(email || '').trim().toLowerCase();
+    if (!normEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normEmail)) {
+      throw new RepoError('invalid email', 400);
+    }
+    if (!emailVerified) throw new RepoError('email not verified by provider', 400);
+
+    const idKey = `${provider}:${sub}`;
+    const linkedId = this.oauthIdentities.get(idKey);
+    if (linkedId && this.users.has(linkedId)) return this.publicUser(this.users.get(linkedId));
+
+    let userId = this.usersByEmail.get(normEmail);
+    if (!userId) {
+      const user = {
+        id: uuid(),
+        email: normEmail,
+        passwordHash: null, // password-less; sign-in is via the provider
+        createdAt: new Date().toISOString(),
+      };
+      this.users.set(user.id, user);
+      this.usersByEmail.set(normEmail, user.id);
+      userId = user.id;
+    }
+    this.oauthIdentities.set(idKey, userId);
+    return this.publicUser(this.users.get(userId));
   }
 
   /**

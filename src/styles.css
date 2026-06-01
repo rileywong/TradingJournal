@@ -273,6 +273,12 @@ tbody tr:hover { background: var(--surface-2); }
 .auth-card { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 30px; }
 .auth-card h1 { font-size: 20px; margin: 14px 0 4px; }
 .auth-card p.sub { color: var(--muted); margin: 0 0 22px; font-size: 13px; }
+.sso-group { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 18px; }
+.sso-google { min-height: 40px; }
+.sso-apple { width: 100%; max-width: 320px; padding: 10px; border-radius: 8px; background: #000; color: #fff; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
+.sso-apple:hover:not(:disabled) { background: #1a1a1a; }
+.sso-divider { width: 100%; text-align: center; border-top: 1px solid var(--border); line-height: 0; margin: 6px 0; }
+.sso-divider span { background: var(--surface); color: var(--muted); padding: 0 10px; font-size: 12px; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .auth-card .btn-primary { width: 100%; padding: 11px; margin-top: 4px; }

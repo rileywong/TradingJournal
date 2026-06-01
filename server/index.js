@@ -25,10 +25,14 @@ import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
 
-export function createApp(repo = new Repository()) {
+export function createApp(repo = new Repository(), options = {}) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '15mb' }));
+
+  // OAuth verifiers (idToken → verified identity), injected for testability.
+  // A provider is "enabled" only when a verifier is configured.
+  const oauth = options.oauth || {};
 
   // --- auth middleware ---------------------------------------------------
   function auth(req, res, next) {
@@ -45,6 +49,19 @@ export function createApp(repo = new Repository()) {
   const wrap = (fn) => (req, res) => {
     try {
       fn(req, res);
+    } catch (err) {
+      if (err instanceof RepoError) {
+        return res.status(err.status).json({ error: err.message });
+      }
+      console.error(err);
+      return res.status(500).json({ error: 'internal error' });
+    }
+  };
+
+  // Async variant of wrap() for handlers that await (e.g. OAuth verification).
+  const wrapAsync = (fn) => async (req, res) => {
+    try {
+      await fn(req, res);
     } catch (err) {
       if (err instanceof RepoError) {
         return res.status(err.status).json({ error: err.message });
@@ -83,6 +100,38 @@ export function createApp(repo = new Repository()) {
     const token = signToken({ sub: user.id, email: user.email });
     res.json({ token, user });
   }));
+
+  // Which third-party sign-in providers are configured (for the login screen).
+  app.get('/api/auth/config', (_req, res) => {
+    res.json({
+      providers: {
+        google: { enabled: Boolean(oauth.google), clientId: options.googleClientId || null },
+        apple: { enabled: Boolean(oauth.apple), clientId: options.appleClientId || null },
+      },
+    });
+  });
+
+  // Sign in with Google / Apple: verify the provider ID token, find-or-create
+  // the user (linking by verified email), and issue our own app token.
+  const oauthLogin = (provider) =>
+    wrapAsync(async (req, res) => {
+      const verify = oauth[provider];
+      if (!verify) return res.status(501).json({ error: `${provider} sign-in not configured` });
+      const idToken = (req.body && (req.body.idToken || req.body.credential)) || '';
+      if (!idToken) return res.status(400).json({ error: 'idToken required' });
+      let identity;
+      try {
+        identity = await verify(idToken);
+      } catch (err) {
+        return res.status(401).json({ error: `invalid ${provider} token: ${err.message}` });
+      }
+      const user = repo.upsertOAuthUser(identity);
+      const token = signToken({ sub: user.id, email: user.email });
+      res.json({ token, user });
+    });
+
+  app.post('/api/auth/google', oauthLogin('google'));
+  app.post('/api/auth/apple', oauthLogin('apple'));
 
   app.get('/api/me', auth, wrap((req, res) => {
     const user = repo.getUser(req.userId);
@@ -322,7 +371,17 @@ if (isMain) {
     mkdirSync(dirname(dbPath), { recursive: true });
   }
   const repo = new SqliteRepository(dbPath);
-  createApp(repo).listen(PORT, () => {
-    console.log(`TradeJournalSimplified API listening on http://localhost:${PORT} (db: ${dbPath})`);
+
+  // Enable Google/Apple sign-in when their client IDs are configured.
+  const { googleVerifier, appleVerifier } = await import('../core/oauth.js');
+  const oauth = {};
+  const googleClientId = process.env.GOOGLE_CLIENT_ID || null;
+  const appleClientId = process.env.APPLE_CLIENT_ID || null;
+  if (googleClientId) oauth.google = googleVerifier({ clientId: googleClientId });
+  if (appleClientId) oauth.apple = appleVerifier({ clientId: appleClientId });
+
+  createApp(repo, { oauth, googleClientId, appleClientId }).listen(PORT, () => {
+    const enabled = Object.keys(oauth).join(', ') || 'email/password only';
+    console.log(`TradeJournalSimplified API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled})`);
   });
 }

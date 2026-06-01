@@ -1011,3 +1011,49 @@ describe('setup playbook', () => {
     expect(trades.find((t) => t.symbol === 'AAPL').setup).toBe('Gap and Go');
   });
 });
+
+describe('OAuth sign-in (Google / Apple)', () => {
+  // Inject a fake verifier so the endpoint logic is tested without network/JWKS.
+  const fakeOauth = {
+    google: async (idToken) => {
+      if (idToken === 'bad') throw new Error('invalid signature');
+      return { provider: 'google', sub: 'google-123', email: 'oauth@example.com', emailVerified: true };
+    },
+  };
+
+  it('advertises configured providers via /api/auth/config', async () => {
+    const configured = createApp(new (await import('../core/repository.js')).Repository(), {
+      oauth: fakeOauth, googleClientId: 'client-abc',
+    });
+    const res = await request(configured).get('/api/auth/config');
+    expect(res.body.providers.google).toEqual({ enabled: true, clientId: 'client-abc' });
+    expect(res.body.providers.apple.enabled).toBe(false);
+  });
+
+  it('signs in with a verified Google token, then logs the same identity back in', async () => {
+    const { Repository } = await import('../core/repository.js');
+    const oauthApp = createApp(new Repository(), { oauth: fakeOauth });
+
+    const first = await request(oauthApp).post('/api/auth/google').send({ idToken: 'good' });
+    expect(first.status).toBe(200);
+    expect(first.body.token).toBeTruthy();
+    expect(first.body.user.email).toBe('oauth@example.com');
+
+    // Token works against a protected route, and the account is usable.
+    const h = { Authorization: `Bearer ${first.body.token}` };
+    const acct = await request(oauthApp).post('/api/accounts').set(h).send({ name: 'G', startingBalance: 1000 });
+    expect(acct.status).toBe(201);
+
+    // Same provider identity → same user (idempotent), still no second account owner.
+    const second = await request(oauthApp).post('/api/auth/google').send({ credential: 'good' });
+    expect(second.body.user.id).toBe(first.body.user.id);
+  });
+
+  it('rejects an invalid token and an unconfigured provider', async () => {
+    const { Repository } = await import('../core/repository.js');
+    const oauthApp = createApp(new Repository(), { oauth: fakeOauth });
+    expect((await request(oauthApp).post('/api/auth/google').send({ idToken: 'bad' })).status).toBe(401);
+    expect((await request(oauthApp).post('/api/auth/apple').send({ idToken: 'x' })).status).toBe(501);
+    expect((await request(oauthApp).post('/api/auth/google').send({})).status).toBe(400);
+  });
+});

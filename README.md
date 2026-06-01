@@ -8,7 +8,10 @@ institutional-grade performance metrics on a professional dashboard.
 ## Features
 
 - **Auth & user isolation** — register/login with HMAC (JWT-shaped) tokens;
-  every data access is RLS-scoped to the owning user.
+  every data access is RLS-scoped to the owning user. **Sign in with Google /
+  Apple** verifies the provider's OIDC ID token (RS256 against the provider
+  JWKS; issuer/audience/expiry checked) and links by verified email — enabled by
+  setting `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID`.
 - **CSV import engine** — auto-detects ThinkOrSwim / Robinhood / Webull / generic
   exports; tolerant date & number parsing; corrupted rows routed to an error
   bucket instead of failing the import. **Append mode** merges several brokers
@@ -99,7 +102,7 @@ existing `dist/` build.)
 npm test
 ```
 
-232 tests across the CSV tokenizer, tolerant date parser, broker detection,
+245 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics
