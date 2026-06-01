@@ -103,6 +103,26 @@ export function computeMaxDrawdown(trades, startingBalance = 10000) {
 }
 
 /**
+ * Underwater (drawdown) curve: for each closed trade in close-time order, the
+ * equity's distance below its running peak. `drawdown`/`drawdownPct` are ≤ 0.
+ * @returns {{ date: string, equity: number, drawdown: number, drawdownPct: number }[]}
+ */
+export function drawdownSeries(trades, startingBalance = 10000) {
+  const ordered = [...trades].sort(
+    (a, b) => new Date(a.closedAt) - new Date(b.closedAt)
+  );
+  let equity = startingBalance;
+  let peak = startingBalance;
+  return ordered.map((t) => {
+    equity += t.netPnl;
+    if (equity > peak) peak = equity;
+    const drawdown = round2(equity - peak); // ≤ 0
+    const drawdownPct = peak > 0 ? round4((equity - peak) / peak) : 0;
+    return { date: t.closedAt, equity: round2(equity), drawdown, drawdownPct };
+  });
+}
+
+/**
  * Cumulative equity curve points for charting.
  * @returns {{ date: string, equity: number, pnl: number }[]}
  */

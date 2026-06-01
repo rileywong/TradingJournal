@@ -8,7 +8,12 @@ export {
   normalizeNumber,
 } from './parser.js';
 export { matchTrades } from './matcher.js';
-export { computeMetrics, computeMaxDrawdown, equityCurve } from './metrics.js';
+export {
+  computeMetrics,
+  computeMaxDrawdown,
+  equityCurve,
+  drawdownSeries,
+} from './metrics.js';
 export { aggregateDaily, buildMonthlyCalendar } from './calendar.js';
 export {
   tradesForDay,

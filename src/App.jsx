@@ -17,6 +17,7 @@ export default function App() {
   const [metrics, setMetrics] = useState(null);
   const [score, setScore] = useState(null);
   const [equityCurve, setEquityCurve] = useState([]);
+  const [drawdownCurve, setDrawdownCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [view, setView] = useState('dashboard');
   const [trades, setTrades] = useState([]);
@@ -53,6 +54,7 @@ export default function App() {
     setMetrics(m.metrics);
     setScore(m.score || null);
     setEquityCurve(m.equityCurve || []);
+    setDrawdownCurve(m.drawdownCurve || []);
     setTrades(t.trades);
     setCalendar(c.calendar);
     setNotedDays(c.notedDays || []);
@@ -78,6 +80,7 @@ export default function App() {
     setMetrics(null);
     setScore(null);
     setEquityCurve([]);
+    setDrawdownCurve([]);
     setAnalytics(null);
     setTrades([]);
     setCalendar(null);
@@ -219,7 +222,7 @@ export default function App() {
                 <TradeLog trades={trades} onTag={onTag} />
               </>
             ) : (
-              <Reports analytics={analytics} />
+              <Reports analytics={analytics} drawdownCurve={drawdownCurve} />
             )}
           </>
         )}

@@ -1,4 +1,5 @@
 import React from 'react';
+import DrawdownChart from './DrawdownChart.jsx';
 
 function fmtMoney(n) {
   const sign = n < 0 ? '-' : '';
@@ -65,7 +66,7 @@ function BreakdownTable({ title, rows, keyLabel }) {
  * Reports view — TradeZella-style performance breakdowns.
  * Props: analytics (from GET /api/analytics).
  */
-export default function Reports({ analytics }) {
+export default function Reports({ analytics, drawdownCurve }) {
   if (!analytics) return <div className="empty-state">Loading reports…</div>;
   const { streaks, holdTime } = analytics;
 
@@ -99,6 +100,11 @@ export default function Reports({ analytics }) {
             <div className="value">{c.value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="section-title">Drawdown (Underwater Equity)</div>
+      <div className="card" style={{ padding: 14 }}>
+        <DrawdownChart data={drawdownCurve} />
       </div>
 
       <div className="section-title">Performance Breakdowns</div>

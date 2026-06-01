@@ -11,7 +11,7 @@ import { Repository, RepoError } from '../core/repository.js';
 import { signToken, verifyToken } from '../core/auth.js';
 import { parseExecutions } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
-import { computeMetrics, equityCurve } from '../core/metrics.js';
+import { computeMetrics, equityCurve, drawdownSeries } from '../core/metrics.js';
 import { buildMonthlyCalendar } from '../core/calendar.js';
 import {
   dailyStats,
@@ -135,6 +135,7 @@ export function createApp(repo = new Repository()) {
     res.json({
       metrics: computeMetrics(trades, { startingBalance: account.startingBalance }),
       equityCurve: equityCurve(trades, account.startingBalance),
+      drawdownCurve: drawdownSeries(trades, account.startingBalance),
       score: computeScore(trades, { startingBalance: account.startingBalance }),
     });
   }));

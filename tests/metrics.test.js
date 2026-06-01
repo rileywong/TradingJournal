@@ -1,9 +1,32 @@
 import { describe, it, expect } from 'vitest';
-import { computeMetrics, computeMaxDrawdown, equityCurve } from '../core/metrics.js';
+import { computeMetrics, computeMaxDrawdown, equityCurve, drawdownSeries } from '../core/metrics.js';
 
 function trade(netPnl, closedAt = '2024-03-04T14:00:00Z') {
   return { netPnl, closedAt };
 }
+
+describe('drawdownSeries', () => {
+  it('returns an empty series for no trades', () => {
+    expect(drawdownSeries([])).toEqual([]);
+  });
+
+  it('tracks the underwater distance below the running peak', () => {
+    const s = drawdownSeries(
+      [
+        trade(100, '2024-03-01T10:00:00Z'), // equity 10100, peak 10100, dd 0
+        trade(-300, '2024-03-02T10:00:00Z'), // equity 9800, peak 10100, dd -300
+        trade(50, '2024-03-03T10:00:00Z'), // equity 9850, dd -250
+        trade(400, '2024-03-04T10:00:00Z'), // equity 10250, new peak, dd 0
+      ],
+      10000
+    );
+    expect(s.map((p) => p.drawdown)).toEqual([0, -300, -250, 0]);
+    // Drawdowns are never positive.
+    expect(s.every((p) => p.drawdown <= 0)).toBe(true);
+    // % matches abs against the peak at the trough.
+    expect(s[1].drawdownPct).toBeCloseTo(-300 / 10100, 4);
+  });
+});
 
 describe('computeMetrics', () => {
   it('returns zeroed metrics for no trades', () => {
