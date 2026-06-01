@@ -3,7 +3,7 @@ import { api, getStoredUser, clearSession } from './api.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
 import PnlCalendar from './components/PnlCalendar.jsx';
-import TradeLog from './components/TradeLog.jsx';
+import TradeLog, { EMPTY_FILTER } from './components/TradeLog.jsx';
 import ImportPanel from './components/ImportPanel.jsx';
 import DayDetail from './components/DayDetail.jsx';
 import EquityChart from './components/EquityChart.jsx';
@@ -20,6 +20,7 @@ export default function App() {
   const [drawdownCurve, setDrawdownCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [view, setView] = useState('dashboard');
+  const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
   const [trades, setTrades] = useState([]);
   const [calendar, setCalendar] = useState(null);
   const [notedDays, setNotedDays] = useState([]);
@@ -71,6 +72,7 @@ export default function App() {
   useEffect(() => {
     setSelectedDate(null);
     setDayDetail(null);
+    setTradeFilter(EMPTY_FILTER);
   }, [activeId]);
 
   const logout = () => {
@@ -88,6 +90,7 @@ export default function App() {
     setNotedDays([]);
     setSelectedDate(null);
     setDayDetail(null);
+    setTradeFilter(EMPTY_FILTER);
   };
 
   // Apply an updated trade to both the main log and any open day drill-down.
@@ -149,6 +152,12 @@ export default function App() {
       return prev;
     });
   }, [activeId]);
+
+  // Drill from a Reports breakdown row into the Dashboard's filtered trade log.
+  const drillToTrades = (criteria) => {
+    setTradeFilter({ ...EMPTY_FILTER, ...criteria });
+    setView('dashboard');
+  };
 
   const shiftMonth = (delta) => {
     setCursor((c) => {
@@ -249,10 +258,16 @@ export default function App() {
                 </div>
 
                 <div className="section-title">Trade Log</div>
-                <TradeLog trades={trades} onTag={onTag} onRisk={onRisk} />
+                <TradeLog
+                  trades={trades}
+                  onTag={onTag}
+                  onRisk={onRisk}
+                  filter={tradeFilter}
+                  onFilterChange={setTradeFilter}
+                />
               </>
             ) : (
-              <Reports analytics={analytics} drawdownCurve={drawdownCurve} />
+              <Reports analytics={analytics} drawdownCurve={drawdownCurve} onDrill={drillToTrades} />
             )}
           </>
         )}

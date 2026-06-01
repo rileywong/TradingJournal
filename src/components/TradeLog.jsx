@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import TradesTable from './TradesTable.jsx';
 import { filterTrades, distinctSymbols, distinctTags } from '../../core/filters.js';
 import { tradesToCsv } from '../../core/export.js';
@@ -15,21 +15,23 @@ function downloadCsv(trades) {
   URL.revokeObjectURL(url);
 }
 
-const EMPTY = { symbol: '', side: '', outcome: '', tag: '', from: '', to: '' };
+export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '', from: '', to: '' };
 
 /**
- * Trade log with a filter bar. Filtering runs client-side through the shared
- * core `filterTrades`, so it matches the server's GET /api/trades semantics
- * exactly without a round-trip.
+ * Trade log with a filter bar. Controlled: the parent owns the `filter` so other
+ * views (e.g. Reports) can drill into it. Filtering runs client-side through the
+ * shared core `filterTrades`, matching GET /api/trades semantics without a
+ * round-trip.
  */
-export default function TradeLog({ trades, onTag, onRisk }) {
-  const [f, setF] = useState(EMPTY);
+export default function TradeLog({ trades, onTag, onRisk, filter = EMPTY_FILTER, onFilterChange }) {
+  const f = filter;
+  const setFilter = onFilterChange || (() => {});
 
   const symbols = useMemo(() => distinctSymbols(trades), [trades]);
   const tags = useMemo(() => distinctTags(trades), [trades]);
   const filtered = useMemo(() => filterTrades(trades, f), [trades, f]);
 
-  const set = (key) => (e) => setF((prev) => ({ ...prev, [key]: e.target.value }));
+  const set = (key) => (e) => setFilter({ ...f, [key]: e.target.value });
   const active = Object.values(f).some(Boolean);
 
   return (
@@ -60,7 +62,7 @@ export default function TradeLog({ trades, onTag, onRisk }) {
           {filtered.length} of {trades.length}
         </span>
         {active && (
-          <button className="btn-ghost" onClick={() => setF(EMPTY)}>Clear</button>
+          <button className="btn-ghost" onClick={() => setFilter(EMPTY_FILTER)}>Clear</button>
         )}
         <button
           className="btn-ghost"
