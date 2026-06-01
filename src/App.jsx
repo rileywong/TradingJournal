@@ -22,6 +22,7 @@ export default function App() {
   const [analytics, setAnalytics] = useState(null);
   const [view, setView] = useState('dashboard');
   const [period, setPeriod] = useState('all');
+  const [basis, setBasis] = useState('net');
   const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
   const [trades, setTrades] = useState([]);
   const [calendar, setCalendar] = useState(null);
@@ -49,13 +50,13 @@ export default function App() {
   // The core state-transition: refresh metrics + trades + calendar together.
   // `range` (period bounds) scopes metrics, score, charts, reports, and the log;
   // the calendar stays month-navigated.
-  const refreshDashboard = useCallback(async (accountId, cur, range = {}) => {
+  const refreshDashboard = useCallback(async (accountId, cur, range = {}, pnlBasis = 'net') => {
     if (!accountId) return;
     const [m, t, c, a] = await Promise.all([
-      api.getMetrics(accountId, range),
+      api.getMetrics(accountId, { ...range, basis: pnlBasis }),
       api.getTrades(accountId, range),
-      api.getCalendar(accountId, cur.year, cur.month),
-      api.getAnalytics(accountId, range),
+      api.getCalendar(accountId, cur.year, cur.month, pnlBasis),
+      api.getAnalytics(accountId, { ...range, basis: pnlBasis }),
     ]);
     setMetrics(m.metrics);
     setScore(m.score || null);
@@ -68,8 +69,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeId) refreshDashboard(activeId, cursor, periodRange(period));
-  }, [activeId, cursor, period, refreshDashboard]);
+    if (activeId) refreshDashboard(activeId, cursor, periodRange(period), basis);
+  }, [activeId, cursor, period, basis, refreshDashboard]);
 
   // Switching accounts closes any open day drill-down (it belonged to the
   // previous account's dataset).
@@ -113,8 +114,12 @@ export default function App() {
   const onRisk = async (id, riskAmount) => {
     const { trade } = await api.setTradeRisk(id, riskAmount);
     applyTradeUpdate(trade);
-    // R-multiple stats depend on risk; refresh analytics in the background.
-    if (activeId) api.getAnalytics(activeId).then((a) => setAnalytics(a.analytics)).catch(() => {});
+    // R-multiple stats depend on risk; refresh analytics (scoped) in the background.
+    if (activeId) {
+      api.getAnalytics(activeId, { ...periodRange(period), basis })
+        .then((a) => setAnalytics(a.analytics))
+        .catch(() => {});
+    }
   };
 
   const openDay = useCallback(async (date) => {
@@ -237,6 +242,18 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              <div className="period-seg" role="group" aria-label="P&L basis">
+                {[['net', 'Net'], ['gross', 'Gross']].map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={`period-btn ${basis === key ? 'active' : ''}`}
+                    onClick={() => setBasis(key)}
+                    title={key === 'gross' ? 'P&L before commissions' : 'P&L after commissions'}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {view === 'dashboard' ? (
@@ -265,7 +282,7 @@ export default function App() {
                     <ImportPanel
                       accountId={activeId}
                       onImported={() => {
-                        refreshDashboard(activeId, cursor, periodRange(period));
+                        refreshDashboard(activeId, cursor, periodRange(period), basis);
                         if (selectedDate) openDay(selectedDate);
                       }}
                     />
@@ -318,7 +335,7 @@ export default function App() {
             setAccounts((prev) => prev.map((a) => (a.id === acct.id ? acct : a)));
             setEditAccount(null);
             // Starting balance / commission affect the snapshot — refresh.
-            refreshDashboard(acct.id, cursor, periodRange(period));
+            refreshDashboard(acct.id, cursor, periodRange(period), basis);
           }}
           onDeleted={(id) => {
             setEditAccount(null);

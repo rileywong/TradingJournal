@@ -22,6 +22,7 @@ import {
 import { buildAnalytics } from '../core/analytics.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
+import { projectBasis, normalizeBasis } from '../core/basis.js';
 
 export function createApp(repo = new Repository()) {
   const app = express();
@@ -152,7 +153,11 @@ export function createApp(repo = new Repository()) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
     }
     const account = repo.getAccount(req.userId, accountId);
-    const trades = filterTrades(repo.listTrades(req.userId, accountId), { from, to });
+    const basis = normalizeBasis(req.query.basis);
+    const trades = projectBasis(
+      filterTrades(repo.listTrades(req.userId, accountId), { from, to }),
+      basis
+    );
     res.json({
       metrics: computeMetrics(trades, { startingBalance: account.startingBalance }),
       equityCurve: equityCurve(trades, account.startingBalance),
@@ -166,7 +171,7 @@ export function createApp(repo = new Repository()) {
     const now = new Date();
     const year = parseInt(req.query.year, 10) || now.getFullYear();
     const month = parseInt(req.query.month, 10) || now.getMonth() + 1;
-    const trades = repo.listTrades(req.userId, accountId);
+    const trades = projectBasis(repo.listTrades(req.userId, accountId), normalizeBasis(req.query.basis));
     res.json({
       calendar: buildMonthlyCalendar(trades, year, month),
       notedDays: repo.listNotedDays(req.userId, accountId),
@@ -208,7 +213,10 @@ export function createApp(repo = new Repository()) {
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
     }
-    const trades = filterTrades(repo.listTrades(req.userId, accountId), { from, to }); // RLS gate
+    const trades = projectBasis(
+      filterTrades(repo.listTrades(req.userId, accountId), { from, to }), // RLS gate
+      normalizeBasis(req.query.basis)
+    );
     res.json({ analytics: buildAnalytics(trades) });
   }));
 

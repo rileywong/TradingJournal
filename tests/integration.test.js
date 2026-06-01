@@ -127,6 +127,24 @@ describe('period-scoped metrics & analytics', () => {
     expect(an.body.analytics.bySymbol.map((s) => s.key)).toEqual(['TSLA']);
   });
 
+  it('switches metrics and calendar between net and gross basis', async () => {
+    const user = await registerUser('basis@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    // Net: AAPL 298 + TSLA 149 = 447; Gross: 300 + 150 = 450 (3 total commission)
+    const net = await request(app).get(`/api/metrics?accountId=${acct.id}`).set(h);
+    expect(net.body.metrics.netPnl).toBe(447);
+    const gross = await request(app).get(`/api/metrics?accountId=${acct.id}&basis=gross`).set(h);
+    expect(gross.body.metrics.netPnl).toBe(450);
+
+    const calNet = await request(app).get(`/api/calendar?accountId=${acct.id}&year=2024&month=3`).set(h);
+    expect(calNet.body.calendar.monthlyPnl).toBe(447);
+    const calGross = await request(app).get(`/api/calendar?accountId=${acct.id}&year=2024&month=3&basis=gross`).set(h);
+    expect(calGross.body.calendar.monthlyPnl).toBe(450);
+  });
+
   it('rejects a malformed from/to on metrics', async () => {
     const user = await registerUser('periodbad@example.com');
     const acct = await createAccount(user.token);
