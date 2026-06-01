@@ -185,6 +185,37 @@ export function winLossComparison(trades) {
   return { winners, losers, payoffRatio };
 }
 
+/**
+ * Weekday × hour P&L heatmap (when do you actually make money?). Returns only
+ * the weekdays (ordered Mon..Sun) and hours that actually have trades, plus the
+ * populated cells and the max |pnl| for color scaling.
+ * @returns {{ weekdays: number[], hours: number[],
+ *   cells: { weekday, hour, pnl, trades }[], maxAbs: number }}
+ */
+export function pnlHeatmap(trades) {
+  const cells = new Map(); // "wd:hr" → { weekday, hour, pnl, trades }
+  const hoursSet = new Set();
+  const weekdaysSet = new Set();
+  for (const t of trades) {
+    const d = new Date(t.closedAt);
+    if (Number.isNaN(d.getTime())) continue;
+    const weekday = d.getDay();
+    const hour = d.getHours();
+    hoursSet.add(hour);
+    weekdaysSet.add(weekday);
+    const key = `${weekday}:${hour}`;
+    const c = cells.get(key) || { weekday, hour, pnl: 0, trades: 0 };
+    c.pnl = round2(c.pnl + t.netPnl);
+    c.trades += 1;
+    cells.set(key, c);
+  }
+  const hours = [...hoursSet].sort((a, b) => a - b);
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  const weekdays = order.filter((w) => weekdaysSet.has(w));
+  const maxAbs = [...cells.values()].reduce((m, c) => Math.max(m, Math.abs(c.pnl)), 0);
+  return { weekdays, hours, cells: [...cells.values()], maxAbs };
+}
+
 /** R-multiple for a single trade (netPnl / planned risk), or null if no risk set. */
 export function rMultiple(trade) {
   const risk = Number(trade.riskAmount);
@@ -227,5 +258,6 @@ export function buildAnalytics(trades) {
     holdTime: holdTimeStats(trades),
     streaks: streaks(trades),
     rMultiple: rMultipleStats(trades),
+    heatmap: pnlHeatmap(trades),
   };
 }

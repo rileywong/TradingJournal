@@ -34,6 +34,7 @@ export {
   winLossComparison,
   rMultiple,
   rMultipleStats,
+  pnlHeatmap,
   buildAnalytics,
 } from './analytics.js';
 export { tradesToCsv } from './export.js';

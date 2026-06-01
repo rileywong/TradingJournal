@@ -1,5 +1,6 @@
 import React from 'react';
 import DrawdownChart from './DrawdownChart.jsx';
+import Heatmap from './Heatmap.jsx';
 
 function fmtMoney(n) {
   const sign = n < 0 ? '-' : '';
@@ -156,6 +157,9 @@ export default function Reports({ analytics, drawdownCurve, onDrill }) {
       <div className="card" style={{ padding: 14 }}>
         <DrawdownChart data={drawdownCurve} />
       </div>
+
+      <div className="section-title">When You Trade — P&amp;L Heatmap</div>
+      <Heatmap data={analytics.heatmap} />
 
       <div className="section-title">Performance Breakdowns</div>
       <div className="reports-grid">

@@ -11,6 +11,7 @@ import {
   winLossComparison,
   rMultiple,
   rMultipleStats,
+  pnlHeatmap,
   buildAnalytics,
 } from '../core/analytics.js';
 
@@ -207,6 +208,26 @@ describe('rMultiple / rMultipleStats', () => {
 
   it('is total when no trade has risk', () => {
     expect(rMultipleStats([trade({ netPnl: 10 })])).toMatchObject({ count: 0, avgR: 0 });
+  });
+});
+
+describe('pnlHeatmap', () => {
+  it('buckets P&L by weekday and hour, present-only, Mon..Sun ordered', () => {
+    const h = pnlHeatmap([
+      trade({ netPnl: 100, closedAt: '2024-03-04T10:30:00' }), // Mon 10:00
+      trade({ netPnl: -40, closedAt: '2024-03-04T10:45:00' }), // Mon 10:00 (same bucket)
+      trade({ netPnl: 50, closedAt: '2024-03-06T14:00:00' }),  // Wed 14:00
+    ]);
+    expect(h.weekdays).toEqual([1, 3]); // Mon, Wed (present only, Mon-first)
+    expect(h.hours).toEqual([10, 14]);
+    const mon10 = h.cells.find((c) => c.weekday === 1 && c.hour === 10);
+    expect(mon10).toMatchObject({ pnl: 60, trades: 2 });
+    expect(h.maxAbs).toBe(60);
+  });
+
+  it('ignores unparseable close times and is empty for no trades', () => {
+    expect(pnlHeatmap([])).toEqual({ weekdays: [], hours: [], cells: [], maxAbs: 0 });
+    expect(pnlHeatmap([trade({ netPnl: 10, closedAt: 'nope' })]).cells).toEqual([]);
   });
 });
 
