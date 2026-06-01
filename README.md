@@ -22,10 +22,14 @@ institutional-grade performance metrics on a professional dashboard.
 - **Day drill-down** — click any calendar day for a TradeZella-style daily
   snapshot: stats, an intraday cumulative-P&L chart, that day's trades, and a
   persistent journal note (notes survive re-imports and show as calendar dots).
-- **Reports** — performance breakdowns by symbol / side / day-of-week / hour /
-  tag, winners-vs-losers comparison, win/loss streaks, hold-time analysis,
-  R-multiple expectancy (set planned risk per trade), and an underwater
-  drawdown chart.
+- **Reports** — a weekday × hour **P&L heatmap**, performance breakdowns by
+  symbol / side / day-of-week / hour / tag, winners-vs-losers comparison,
+  win/loss streaks, hold-time analysis, R-multiple expectancy (set planned risk
+  per trade), and an underwater drawdown chart.
+- **Period & basis controls** — scope the whole dashboard to All / Last 30 days
+  / MTD / YTD and toggle **Net vs Gross** P&L.
+- **Per-trade journal notes** — inline notes on any trade, persisted across
+  re-imports (alongside durable tags and risk).
 - **Accounts** — create, edit, and delete accounts (delete cascades to all of
   the account's trades, notes, and tags). The calendar shows weekly P&L
   roll-ups beside the month grid, and the trade log exports to CSV.
@@ -79,14 +83,15 @@ existing `dist/` build.)
 npm test
 ```
 
-151 tests across the CSV tokenizer, tolerant date parser, broker detection,
+166 tests across the CSV tokenizer, tolerant date parser, broker detection,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly aggregation, analytics
-breakdowns (incl. winners-vs-losers and R-multiple), the composite Trade Score,
-trade filtering, CSV export, journal-note persistence, durable tags & risk, and
+breakdowns (incl. winners-vs-losers, R-multiple, and the weekday×hour heatmap),
+the composite Trade Score, period ranges, net/gross basis, trade filtering, CSV
+export, journal-note persistence (daily and per-trade), durable tags & risk, and
 full API integration (auth, RLS isolation, import→state-transition, re-import
-idempotency, account update/delete cascade, day/analytics/notes/filter
-endpoints).
+idempotency, account update/delete cascade, period/basis-scoped metrics, and the
+day/analytics/notes/filter endpoints).
 
 A `SessionStart` hook (`.claude/hooks/session-start.sh`) installs dependencies
 automatically so the suite is ready to run in Claude Code on the web sessions.

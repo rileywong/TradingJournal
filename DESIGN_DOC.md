@@ -234,7 +234,7 @@ reports update atomically — the core state-transition guarantee verified in
 | `GET  /api/calendar`     | Monthly P&L grid (+ weekly roll-ups) + `notedDays`           |
 | `GET  /api/day`          | Daily stats + that day's trades + intraday curve + note       |
 | `PUT  /api/day/note`     | Upsert a day's journal note (empty clears)                    |
-| `GET  /api/analytics`    | Breakdowns, streaks, hold time, winners-vs-losers, R-multiple |
+| `GET  /api/analytics`    | Breakdowns, streaks, hold time, winners-vs-losers, R-multiple, heatmap (optional `from/to`, `basis`) |
 
 Every data route is RLS-gated through the owning `user → account` chain.
 
@@ -291,3 +291,6 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 14. ✅ Per-trade risk + R-multiple analytics
 15. ✅ Reports→trade-log drill filtering; shared BaseChart
 16. ✅ Dashboard period selector (All / 30d / MTD / YTD)
+17. ✅ Net vs Gross P&L toggle
+18. ✅ Weekday × hour P&L heatmap
+19. ✅ Persisted per-trade journal notes
