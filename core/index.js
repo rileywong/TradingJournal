@@ -7,6 +7,7 @@ export {
   normalizeAction,
   normalizeNumber,
   dedupeExecutions,
+  inspectCsv,
 } from './parser.js';
 export { matchTrades } from './matcher.js';
 export {

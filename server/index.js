@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { Repository, RepoError } from '../core/repository.js';
 import { signToken, verifyToken } from '../core/auth.js';
-import { parseExecutions, dedupeExecutions } from '../core/parser.js';
+import { parseExecutions, dedupeExecutions, inspectCsv } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
 import { computeMetrics, equityCurve, drawdownSeries } from '../core/metrics.js';
 import { buildMonthlyCalendar, buildYearHeatmap } from '../core/calendar.js';
@@ -126,8 +126,17 @@ export function createApp(repo = new Repository()) {
   }));
 
   // --- import ------------------------------------------------------------
+  // Inspect an unrecognized CSV so the UI can offer manual column mapping.
+  app.post('/api/import/preview', auth, wrap((req, res) => {
+    const { csv } = req.body || {};
+    if (typeof csv !== 'string' || csv.trim() === '') {
+      return res.status(400).json({ error: 'csv content required' });
+    }
+    res.json(inspectCsv(csv));
+  }));
+
   app.post('/api/import', auth, wrap((req, res) => {
-    const { accountId, csv, broker } = req.body || {};
+    const { accountId, csv, broker, mapping } = req.body || {};
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'replace';
     if (!accountId) return res.status(400).json({ error: 'accountId required' });
     if (typeof csv !== 'string' || csv.trim() === '') {
@@ -135,7 +144,7 @@ export function createApp(repo = new Repository()) {
     }
     const account = repo.getAccount(req.userId, accountId); // RLS gate
 
-    const { broker: detected, executions: parsed, errors } = parseExecutions(csv, { broker });
+    const { broker: detected, executions: parsed, errors } = parseExecutions(csv, { broker, mapping });
 
     // Append mode merges this file's fills with the account's existing
     // executions (de-duping exact repeats), then re-derives ALL trades from the
@@ -153,8 +162,13 @@ export function createApp(repo = new Repository()) {
     });
     const saved = repo.saveImport(req.userId, accountId, executions, trades);
 
+    // Distinct brokers now present in the account (union for append) — lets the
+    // UI confirm e.g. "merged 2 brokers: ThinkOrSwim, Webull".
+    const accountBrokers = [...new Set(executions.map((e) => e.broker))];
+
     res.json({
       broker: detected,
+      accountBrokers,
       mode,
       addedExecutions: addedCount,
       imported: saved,

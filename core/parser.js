@@ -107,10 +107,25 @@ function lowerKeyMap(record) {
 }
 
 function pick(lowerRecord, candidates) {
-  for (const c of candidates) {
+  for (const c of candidates || []) {
     if (c in lowerRecord && lowerRecord[c] !== '') return lowerRecord[c];
   }
   return undefined;
+}
+
+// Canonical fields, in display order, used by custom mappings and previews.
+const FIELD_KEYS = ['symbol', 'action', 'quantity', 'price', 'commission', 'executedAt'];
+
+// Build a broker-style column map from an explicit { field: headerName } object,
+// for CSVs from brokers we don't auto-detect. Unmapped fields resolve to nothing.
+function customDef(mapping) {
+  const fields = {};
+  for (const k of FIELD_KEYS) {
+    const v = mapping[k];
+    const arr = v == null || v === '' ? [] : Array.isArray(v) ? v : [v];
+    fields[k] = arr.map((s) => String(s).trim().toLowerCase());
+  }
+  return { label: 'Custom mapping', fields };
 }
 
 /**
@@ -131,17 +146,19 @@ export function detectBroker(headers) {
 /**
  * Parse raw CSV text into normalized executions.
  * @param {string} text
- * @param {{ broker?: string }} [opts] - force a broker, else auto-detect
+ * @param {{ broker?: string, mapping?: object }} [opts] - force a broker or pass
+ *   an explicit { field: headerName } mapping; else auto-detect.
  * @returns {{ broker: string, executions: object[], errors: {row:number, reason:string, raw:object}[] }}
  */
 export function parseExecutions(text, opts = {}) {
   const { headers, records } = parseCsv(text);
+  const usingMapping = opts.mapping && Object.keys(opts.mapping).length > 0;
   if (records.length === 0) {
-    return { broker: opts.broker || 'generic', executions: [], errors: [] };
+    return { broker: usingMapping ? 'custom' : opts.broker || 'generic', executions: [], errors: [] };
   }
 
-  const brokerKey = opts.broker || detectBroker(headers);
-  const def = BROKERS[brokerKey] || BROKERS.generic;
+  const brokerKey = usingMapping ? 'custom' : opts.broker || detectBroker(headers);
+  const def = usingMapping ? customDef(opts.mapping) : BROKERS[brokerKey] || BROKERS.generic;
   const executions = [];
   const errors = [];
 
@@ -211,6 +228,30 @@ export function parseExecutions(text, opts = {}) {
  * @param {object[]} executions
  * @returns {object[]}
  */
+/**
+ * Inspect a CSV for the column-mapping UI: returns its headers, a few sample
+ * rows, the auto-detected broker, and a best-guess field→header mapping built
+ * from the generic synonym lists. Used when a broker isn't recognized.
+ * @param {string} text
+ * @param {number} [sampleSize=5]
+ */
+export function inspectCsv(text, sampleSize = 5) {
+  const { headers, records } = parseCsv(text);
+  const lowerHeaders = headers.map((h) => h.trim().toLowerCase());
+  const suggested = {};
+  for (const k of FIELD_KEYS) {
+    const hit = (BROKERS.generic.fields[k] || []).find((c) => lowerHeaders.includes(c));
+    suggested[k] = hit ? headers[lowerHeaders.indexOf(hit)] : '';
+  }
+  return {
+    headers,
+    fields: FIELD_KEYS,
+    sampleRows: records.slice(0, sampleSize).map((r) => headers.map((h) => r[h] ?? '')),
+    detectedBroker: detectBroker(headers),
+    suggested,
+  };
+}
+
 export function dedupeExecutions(executions) {
   const seen = new Set();
   const out = [];

@@ -1,23 +1,39 @@
 import React, { useRef, useState } from 'react';
 import { api } from '../api.js';
 
+// Canonical fields the matcher needs. action & commission are optional —
+// action can be inferred from the quantity sign, commission defaults to 0.
+const FIELD_LABELS = {
+  symbol: 'Symbol *',
+  action: 'Side / action',
+  quantity: 'Quantity *',
+  price: 'Price *',
+  commission: 'Commission',
+  executedAt: 'Date / time *',
+};
+const FIELD_ORDER = ['symbol', 'action', 'quantity', 'price', 'commission', 'executedAt'];
+
 export default function ImportPanel({ accountId, onImported }) {
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mode, setMode] = useState('replace');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [csvText, setCsvText] = useState(''); // last selected file, for mapping
+  const [preview, setPreview] = useState(null); // inspectCsv result
+  const [mapping, setMapping] = useState({});
   const inputRef = useRef(null);
 
-  const handleFile = async (file) => {
-    if (!file) return;
+  const runImport = async (csv, map) => {
     setError('');
     setResult(null);
     setBusy(true);
     try {
-      const csv = await file.text();
-      const res = await api.importCsv(accountId, csv, undefined, mode);
+      const res = await api.importCsv(accountId, csv, undefined, mode, map);
       setResult(res);
+      if (res.imported.executions > 0) {
+        setPreview(null); // mapping worked — close the mapper
+      }
       onImported(res);
     } catch (err) {
       setError(err.message);
@@ -26,12 +42,36 @@ export default function ImportPanel({ accountId, onImported }) {
     }
   };
 
+  const handleFile = async (file) => {
+    if (!file) return;
+    const csv = await file.text();
+    setCsvText(csv);
+    setPreview(null);
+    runImport(csv);
+  };
+
   const onDrop = (e) => {
     e.preventDefault();
     setDrag(false);
-    const file = e.dataTransfer.files?.[0];
-    handleFile(file);
+    handleFile(e.dataTransfer.files?.[0]);
   };
+
+  const openMapper = async () => {
+    if (!csvText) {
+      setError('Choose a CSV file first, then map its columns.');
+      return;
+    }
+    setError('');
+    try {
+      const info = await api.previewCsv(csvText);
+      setPreview(info);
+      setMapping(info.suggested || {});
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const canImportMapping = mapping.symbol && mapping.quantity && mapping.price && mapping.executedAt;
 
   return (
     <div className="import-panel">
@@ -75,6 +115,66 @@ export default function ImportPanel({ accountId, onImported }) {
         <div className="hint">ThinkOrSwim · Robinhood · Webull · generic exports auto-detected</div>
       </div>
 
+      {csvText && !preview && (
+        <button type="button" className="link-btn" onClick={openMapper} style={{ marginTop: 8 }}>
+          Columns not detected correctly? Map them manually →
+        </button>
+      )}
+
+      {preview && (
+        <div className="col-mapper">
+          <div className="col-mapper-head">
+            <strong>Map columns</strong>
+            <button type="button" className="link-btn" onClick={() => setPreview(null)}>Cancel</button>
+          </div>
+          <div className="hint" style={{ marginBottom: 10 }}>
+            Detected as <code>{preview.detectedBroker}</code>. Match each field to a column
+            from your file (* required).
+          </div>
+          <div className="col-mapper-grid">
+            {FIELD_ORDER.map((field) => (
+              <label key={field} className="col-mapper-row">
+                <span>{FIELD_LABELS[field]}</span>
+                <select
+                  value={mapping[field] || ''}
+                  onChange={(e) => setMapping((m) => ({ ...m, [field]: e.target.value }))}
+                >
+                  <option value="">— none —</option>
+                  {preview.headers.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+
+          {preview.sampleRows?.length > 0 && (
+            <div className="col-mapper-sample">
+              <table>
+                <thead>
+                  <tr>{preview.headers.map((h) => <th key={h}>{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {preview.sampleRows.map((row, i) => (
+                    <tr key={i}>{row.map((cell, j) => <td key={j}>{String(cell)}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={!canImportMapping || busy}
+            onClick={() => runImport(csvText, mapping)}
+            style={{ marginTop: 12 }}
+          >
+            {busy ? 'Importing…' : 'Import with this mapping'}
+          </button>
+        </div>
+      )}
+
       {error && <div className="banner error">{error}</div>}
 
       {result && (
@@ -83,6 +183,11 @@ export default function ImportPanel({ accountId, onImported }) {
             {result.mode === 'append'
               ? `Added ${result.addedExecutions} executions (${result.broker}) — account now has ${result.imported.trades} trade${result.imported.trades !== 1 ? 's' : ''} from ${result.imported.executions} executions.`
               : `Imported ${result.imported.trades} trade${result.imported.trades !== 1 ? 's' : ''} from ${result.imported.executions} executions (${result.broker}).`}
+            {result.accountBrokers?.length > 1 && (
+              <div style={{ marginTop: 4, fontWeight: 600 }}>
+                Merged {result.accountBrokers.length} brokers: {result.accountBrokers.join(', ')}.
+              </div>
+            )}
           </div>
           {result.errors?.length > 0 && (
             <div className="banner error" style={{ marginTop: 8 }}>

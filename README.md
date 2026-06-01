@@ -14,6 +14,9 @@ institutional-grade performance metrics on a professional dashboard.
   bucket instead of failing the import. **Append mode** merges several brokers
   into one account (re-deriving trades from the combined fills, so a position
   opened on one broker and closed on another still matches; re-uploads de-dupe).
+  Unrecognized export? A preview + **manual column-mapping** UI lets you point
+  each field at the right column. After a merge, the import confirms which
+  brokers the account now holds.
 - **Multi-account & aggregate** — keep an account per broker, then switch to
   **All accounts** for a combined dashboard, score, calendar, reports, and log.
 - **Trade matching** — groups executions into closed round-trips, handling split
@@ -90,7 +93,7 @@ existing `dist/` build.)
 npm test
 ```
 
-181 tests across the CSV tokenizer, tolerant date parser, broker detection,
+186 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics

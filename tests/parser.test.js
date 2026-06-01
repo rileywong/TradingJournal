@@ -6,6 +6,7 @@ import {
   normalizeAction,
   normalizeNumber,
   dedupeExecutions,
+  inspectCsv,
 } from '../core/parser.js';
 
 describe('parseDate (tolerant)', () => {
@@ -195,5 +196,48 @@ describe('dedupeExecutions', () => {
 
   it('is a no-op on an empty list', () => {
     expect(dedupeExecutions([])).toEqual([]);
+  });
+});
+
+describe('custom column mapping (unknown brokers)', () => {
+  const csv = [
+    'Ticker,Direction,Filled,ExecPrice,Fee,When',
+    'AAPL,Bought,100,170.00,1.50,2024-03-04 09:31:00',
+    'AAPL,Sold,100,173.00,1.50,2024-03-04 14:00:00',
+  ].join('\n');
+
+  const mapping = {
+    symbol: 'Ticker',
+    action: 'Direction',
+    quantity: 'Filled',
+    price: 'ExecPrice',
+    commission: 'Fee',
+    executedAt: 'When',
+  };
+
+  it('parses via an explicit field-to-header mapping', () => {
+    const { broker, executions, errors } = parseExecutions(csv, { mapping });
+    expect(broker).toBe('custom');
+    expect(errors).toHaveLength(0);
+    expect(executions).toHaveLength(2);
+    expect(executions[0]).toMatchObject({ symbol: 'AAPL', action: 'BUY', quantity: 100, price: 170, commission: 1.5 });
+    expect(executions[1].action).toBe('SELL');
+  });
+
+  it('treats unmapped optional fields as absent (commission defaults to 0)', () => {
+    const { executions } = parseExecutions(csv, { mapping: { ...mapping, commission: '' } });
+    expect(executions[0].commission).toBe(0);
+  });
+
+  it('inspectCsv returns headers, samples, and a best-guess mapping', () => {
+    const generic = 'Symbol,Action,Quantity,Price,Timestamp\nAAPL,BUY,100,170,2024-03-04 09:31:00';
+    const info = inspectCsv(generic);
+    expect(info.headers).toEqual(['Symbol', 'Action', 'Quantity', 'Price', 'Timestamp']);
+    expect(info.detectedBroker).toBe('generic');
+    expect(info.sampleRows[0]).toEqual(['AAPL', 'BUY', '100', '170', '2024-03-04 09:31:00']);
+    expect(info.suggested).toMatchObject({
+      symbol: 'Symbol', action: 'Action', quantity: 'Quantity', price: 'Price', executedAt: 'Timestamp',
+    });
+    expect(info.suggested.commission).toBe('');
   });
 });

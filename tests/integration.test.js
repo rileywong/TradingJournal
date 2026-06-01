@@ -354,6 +354,46 @@ describe('import → state transition', () => {
     expect(trades[0].netPnl).toBe(500); // (175-170)*100
   });
 
+  it('reports the distinct brokers present after an append merge', async () => {
+    const user = await registerUser('brokers@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    const webull = [
+      'Symbol,Side,Filled,Avg Price,Filled Time',
+      'NVDA,BUY,10,500,2024-03-06 11:00:00',
+      'NVDA,SELL,10,510,2024-03-06 12:00:00',
+    ].join('\n');
+    const res = await request(app).post('/api/import').set(h)
+      .send({ accountId: acct.id, csv: webull, mode: 'append' });
+    expect(res.body.accountBrokers.sort()).toEqual(['ThinkOrSwim', 'Webull']);
+  });
+
+  it('previews an unknown CSV then imports it with an explicit mapping', async () => {
+    const user = await registerUser('mapcsv@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const csv = [
+      'Ticker,Direction,Filled,ExecPrice,Fee,When',
+      'AAPL,Bought,100,170.00,1.50,2024-03-04 09:31:00',
+      'AAPL,Sold,100,173.00,1.50,2024-03-04 14:00:00',
+    ].join('\n');
+
+    const preview = await request(app).post('/api/import/preview').set(h).send({ csv });
+    expect(preview.body.headers).toContain('Ticker');
+    expect(preview.body.detectedBroker).toBe('generic'); // unrecognized → fell back
+    expect(preview.body.sampleRows).toHaveLength(2);
+
+    const res = await request(app).post('/api/import').set(h).send({
+      accountId: acct.id,
+      csv,
+      mapping: { symbol: 'Ticker', action: 'Direction', quantity: 'Filled', price: 'ExecPrice', commission: 'Fee', executedAt: 'When' },
+    });
+    expect(res.body.broker).toBe('custom');
+    expect(res.body.imported.trades).toBe(1);
+    expect(res.body.metrics.netPnl).toBe(297); // (173-170)*100 - 3 commission
+  });
+
   it('re-importing replaces prior data (idempotent)', async () => {
     const user = await registerUser('reimport@example.com');
     const acct = await createAccount(user.token);
