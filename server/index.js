@@ -299,7 +299,17 @@ const isMain =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const PORT = process.env.PORT || 4000;
-  createApp().listen(PORT, () => {
-    console.log(`TradeJournalSimplified API listening on http://localhost:${PORT}`);
+  // Persist to SQLite by default so data survives restarts; DB_PATH=:memory:
+  // gives an ephemeral store. Tests inject the in-memory Repository instead.
+  const { SqliteRepository } = await import('../core/sqlite-repository.js');
+  const here = dirname(fileURLToPath(import.meta.url));
+  const dbPath = process.env.DB_PATH || join(here, '..', 'data', 'trade.db');
+  if (dbPath !== ':memory:') {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(dirname(dbPath), { recursive: true });
+  }
+  const repo = new SqliteRepository(dbPath);
+  createApp(repo).listen(PORT, () => {
+    console.log(`TradeJournalSimplified API listening on http://localhost:${PORT} (db: ${dbPath})`);
   });
 }

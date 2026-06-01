@@ -902,3 +902,27 @@ describe('column mapping — deep coverage', () => {
     expect(res.body.errors[0].reason).toBe('invalid price');
   });
 });
+
+describe('SQLite-backed app (persistence wiring)', () => {
+  it('runs the import → metrics flow against a SqliteRepository', async () => {
+    const { SqliteRepository } = await import('../core/sqlite-repository.js');
+    const sqliteApp = createApp(new SqliteRepository(':memory:'));
+
+    const reg = await request(sqliteApp).post('/api/auth/register').send({ email: 'sql@example.com', password: 'secret123' });
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    const acct = (await request(sqliteApp).post('/api/accounts').set(h).send({ name: 'SQL', startingBalance: 10000 })).body.account;
+
+    const imp = await request(sqliteApp).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    expect(imp.body.imported.trades).toBe(2);
+
+    const metrics = await request(sqliteApp).get(`/api/metrics?accountId=${acct.id}`).set(h);
+    expect(metrics.body.metrics.netPnl).toBe(447);
+
+    // Tag a trade, re-import, confirm durability through the SQL layer.
+    const trades = (await request(sqliteApp).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    await request(sqliteApp).patch(`/api/trades/${trades[0].id}`).set(h).send({ tags: ['A+'] });
+    await request(sqliteApp).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    const reTagged = (await request(sqliteApp).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    expect(reTagged.find((t) => t.id === trades[0].id || t.symbol === trades[0].symbol).tags).toContain('A+');
+  });
+});

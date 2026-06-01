@@ -56,8 +56,10 @@ institutional-grade performance metrics on a professional dashboard.
   calendar, auth, repository.
 - **Backend** (`server/`): Express API.
 - **Frontend** (`src/`): React + Vite, hand-rolled light-theme CSS.
-- **Persistence**: in-memory repository mirroring a `users → accounts →
-  executions/trades` SQL schema (swap to Postgres without touching logic).
+- **Persistence**: **SQLite** (`node:sqlite`, zero native deps) by default —
+  data survives restarts; set `DB_PATH` (or `:memory:` for ephemeral). Tests use
+  an in-memory repository behind the identical interface, so the same logic runs
+  on either store (swap to Postgres without touching app code).
 
 ## Getting started
 
@@ -93,7 +95,7 @@ existing `dist/` build.)
 npm test
 ```
 
-199 tests across the CSV tokenizer, tolerant date parser, broker detection,
+208 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics
