@@ -305,3 +305,4 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 25. ✅ Options & futures support (contract multipliers, OCC parsing)
 26. ✅ Setup playbook (per-strategy expectancy / R analytics)
 27. ✅ Sign in with Google / Apple (OIDC ID-token verification, account linking)
+28. ✅ 7-day trial + paywall gating (provider-pluggable billing)

@@ -1057,3 +1057,54 @@ describe('OAuth sign-in (Google / Apple)', () => {
     expect((await request(oauthApp).post('/api/auth/google').send({})).status).toBe(400);
   });
 });
+
+describe('billing — trial + paywall gating', () => {
+  it('new users get a live trial and can access data', async () => {
+    const user = await registerUser('trial@example.com');
+    const h = { Authorization: `Bearer ${user.token}` };
+    const status = await request(app).get('/api/billing/status').set(h);
+    expect(status.body.billing).toMatchObject({ entitled: true, status: 'trialing' });
+    expect(status.body.billing.daysLeft).toBeGreaterThan(0);
+    expect(status.body.mode).toBe('dev');
+    // Data routes are reachable during the trial.
+    expect((await request(app).get('/api/accounts').set(h)).status).toBe(200);
+  });
+
+  it('blocks data with 402 once the trial has expired, then mock-checkout restores access', async () => {
+    // Use a repo we can age the trial on directly.
+    const { Repository } = await import('../core/repository.js');
+    const repo = new Repository();
+    const billingApp = createApp(repo);
+    const reg = await request(billingApp).post('/api/auth/register').send({ email: 'expired@example.com', password: 'secret123' });
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+
+    // Expire the trial.
+    repo.setSubscription(reg.body.user.id, { trialEndsAt: new Date(Date.now() - 1000).toISOString() });
+
+    const blocked = await request(billingApp).get('/api/accounts').set(h);
+    expect(blocked.status).toBe(402);
+    expect(blocked.body.code).toBe('subscription_required');
+    expect(blocked.body.billing.status).toBe('trial_expired');
+
+    // /api/me and billing routes stay reachable so the paywall can render.
+    expect((await request(billingApp).get('/api/me').set(h)).status).toBe(200);
+
+    // Start (mock) checkout, complete it → active subscription → access restored.
+    const checkout = await request(billingApp).post('/api/billing/checkout').set(h);
+    expect(checkout.body.url).toContain('checkout=mock');
+    const done = await request(billingApp).post('/api/billing/mock-complete').set(h);
+    expect(done.body.billing).toMatchObject({ entitled: true, status: 'active' });
+
+    expect((await request(billingApp).get('/api/accounts').set(h)).status).toBe(200);
+  });
+
+  it('hides the dev mock-complete endpoint when a real billing provider is configured', async () => {
+    const { Repository } = await import('../core/repository.js');
+    const stripeApp = createApp(new Repository(), { billing: { mode: 'stripe', createCheckout: async () => ({ url: 'https://stripe/checkout' }) } });
+    const reg = await request(stripeApp).post('/api/auth/register').send({ email: 'stripe@example.com', password: 'secret123' });
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    expect((await request(stripeApp).post('/api/billing/mock-complete').set(h)).status).toBe(404);
+    const checkout = await request(stripeApp).post('/api/billing/checkout').set(h);
+    expect(checkout.body.url).toBe('https://stripe/checkout');
+  });
+});

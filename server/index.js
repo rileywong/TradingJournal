@@ -21,6 +21,7 @@ import {
 } from '../core/day.js';
 import { buildAnalytics } from '../core/analytics.js';
 import { buildPlaybook, listSetups } from '../core/playbook.js';
+import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
@@ -33,6 +34,16 @@ export function createApp(repo = new Repository(), options = {}) {
   // OAuth verifiers (idToken → verified identity), injected for testability.
   // A provider is "enabled" only when a verifier is configured.
   const oauth = options.oauth || {};
+
+  // Billing provider (Stripe-pluggable). Without one, a dev provider lets the
+  // paywall flow complete locally so the trial/subscription gating is usable
+  // and testable end-to-end.
+  const SUB_DAYS = 30;
+  const devBilling = {
+    mode: 'dev',
+    createCheckout: async (userId) => ({ url: `/?checkout=mock&u=${userId}`, mock: true }),
+  };
+  const billing = options.billing || devBilling;
 
   // --- auth middleware ---------------------------------------------------
   function auth(req, res, next) {
@@ -70,6 +81,18 @@ export function createApp(repo = new Repository(), options = {}) {
       return res.status(500).json({ error: 'internal error' });
     }
   };
+
+  // Paywall gate: an authenticated user must have an active subscription or a
+  // live trial. Returns 402 with the billing state so the client shows the
+  // paywall. Applied to data routes (not to /api/me or /api/billing/*).
+  const requireEntitlement = (req, res, next) => {
+    const ent = computeEntitlement(repo.getSubscription(req.userId));
+    if (!ent.entitled) {
+      return res.status(402).json({ error: 'subscription required', code: 'subscription_required', billing: ent });
+    }
+    next();
+  };
+  const gate = [auth, requireEntitlement];
 
   // Resolve a read scope: a single account (RLS-gated) or the special 'all'
   // pseudo-account that aggregates every account the user owns. Returns the
@@ -139,12 +162,48 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ user });
   }));
 
+  // --- billing (trial + subscription) ------------------------------------
+  // Current entitlement: trial days left / active / expired. Drives the paywall.
+  app.get('/api/billing/status', auth, wrap((req, res) => {
+    res.json({ billing: computeEntitlement(repo.getSubscription(req.userId)), mode: billing.mode || 'stripe' });
+  }));
+
+  // Begin a subscription: returns a checkout URL to redirect the browser to.
+  app.post('/api/billing/checkout', auth, wrapAsync(async (req, res) => {
+    const sub = repo.getSubscription(req.userId);
+    const session = await billing.createCheckout(req.userId, {
+      email: (repo.getUser(req.userId) || {}).email,
+      stripeCustomerId: sub.stripeCustomerId,
+    });
+    res.json(session);
+  }));
+
+  // Dev-only: complete the mock checkout (no Stripe configured) by activating a
+  // 30-day subscription. Disabled when a real billing provider is wired in.
+  app.post('/api/billing/mock-complete', auth, wrap((req, res) => {
+    if (billing.mode !== 'dev') return res.status(404).json({ error: 'not found' });
+    const currentPeriodEnd = new Date(Date.now() + SUB_DAYS * 86_400_000).toISOString();
+    repo.setSubscription(req.userId, { subscriptionStatus: 'active', currentPeriodEnd });
+    res.json({ billing: computeEntitlement(repo.getSubscription(req.userId)) });
+  }));
+
+  // Stripe webhook (subscription lifecycle). The provider verifies the signature
+  // and maps the event to { userId, subscriptionStatus, currentPeriodEnd }.
+  app.post('/api/billing/webhook', wrapAsync(async (req, res) => {
+    if (!billing.handleWebhook) return res.status(404).json({ error: 'not found' });
+    const update = await billing.handleWebhook(req);
+    if (update && update.userId) {
+      repo.setSubscription(update.userId, update);
+    }
+    res.json({ received: true });
+  }));
+
   // --- accounts ----------------------------------------------------------
-  app.get('/api/accounts', auth, wrap((req, res) => {
+  app.get('/api/accounts', gate, wrap((req, res) => {
     res.json({ accounts: repo.listAccounts(req.userId) });
   }));
 
-  app.post('/api/accounts', auth, wrap((req, res) => {
+  app.post('/api/accounts', gate, wrap((req, res) => {
     const { name, startingBalance, commissionPerTrade } = req.body || {};
     const account = repo.createAccount(req.userId, {
       name,
@@ -154,30 +213,30 @@ export function createApp(repo = new Repository(), options = {}) {
     res.status(201).json({ account });
   }));
 
-  app.patch('/api/accounts/:id', auth, wrap((req, res) => {
+  app.patch('/api/accounts/:id', gate, wrap((req, res) => {
     const account = repo.updateAccount(req.userId, req.params.id, req.body || {});
     res.json({ account });
   }));
 
-  app.delete('/api/accounts/:id', auth, wrap((req, res) => {
+  app.delete('/api/accounts/:id', gate, wrap((req, res) => {
     repo.deleteAccount(req.userId, req.params.id);
     res.json({ ok: true });
   }));
 
   // Tag management across an account's trades.
-  app.post('/api/accounts/:id/tags/rename', auth, wrap((req, res) => {
+  app.post('/api/accounts/:id/tags/rename', gate, wrap((req, res) => {
     const { from, to } = req.body || {};
     res.json({ result: repo.renameTag(req.userId, req.params.id, from, to) });
   }));
 
-  app.post('/api/accounts/:id/tags/delete', auth, wrap((req, res) => {
+  app.post('/api/accounts/:id/tags/delete', gate, wrap((req, res) => {
     const { tag } = req.body || {};
     res.json({ result: repo.removeTag(req.userId, req.params.id, tag) });
   }));
 
   // --- import ------------------------------------------------------------
   // Inspect an unrecognized CSV so the UI can offer manual column mapping.
-  app.post('/api/import/preview', auth, wrap((req, res) => {
+  app.post('/api/import/preview', gate, wrap((req, res) => {
     const { csv } = req.body || {};
     if (typeof csv !== 'string' || csv.trim() === '') {
       return res.status(400).json({ error: 'csv content required' });
@@ -185,7 +244,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json(inspectCsv(csv));
   }));
 
-  app.post('/api/import', auth, wrap((req, res) => {
+  app.post('/api/import', gate, wrap((req, res) => {
     const { accountId, csv, broker, mapping } = req.body || {};
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'replace';
     if (!accountId) return res.status(400).json({ error: 'accountId required' });
@@ -229,7 +288,7 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // --- analytics ---------------------------------------------------------
-  app.get('/api/trades', auth, wrap((req, res) => {
+  app.get('/api/trades', gate, wrap((req, res) => {
     const { accountId, symbol, side, tag, setup, outcome, from, to } = req.query;
     // Date-range bounds are compared lexically, so reject non-canonical keys
     // rather than silently mis-filtering.
@@ -240,7 +299,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ trades: filterTrades(trades, { symbol, side, tag, setup, outcome, from, to }) });
   }));
 
-  app.patch('/api/trades/:id', auth, wrap((req, res) => {
+  app.patch('/api/trades/:id', gate, wrap((req, res) => {
     const { tags, riskAmount, note, setup } = req.body || {};
     let trade;
     if (tags !== undefined) trade = repo.updateTradeTags(req.userId, req.params.id, tags);
@@ -251,7 +310,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ trade });
   }));
 
-  app.get('/api/metrics', auth, wrap((req, res) => {
+  app.get('/api/metrics', gate, wrap((req, res) => {
     const { accountId, from, to } = req.query;
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
@@ -267,7 +326,7 @@ export function createApp(repo = new Repository(), options = {}) {
     });
   }));
 
-  app.get('/api/calendar', auth, wrap((req, res) => {
+  app.get('/api/calendar', gate, wrap((req, res) => {
     const { accountId } = req.query;
     const now = new Date();
     const year = parseInt(req.query.year, 10) || now.getFullYear();
@@ -281,7 +340,7 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // GitHub-style yearly P&L heatmap (respects net/gross basis).
-  app.get('/api/year', auth, wrap((req, res) => {
+  app.get('/api/year', gate, wrap((req, res) => {
     const { accountId } = req.query;
     const year = parseInt(req.query.year, 10) || new Date().getFullYear();
     const { trades: all } = scopeTrades(req.userId, accountId);
@@ -291,7 +350,7 @@ export function createApp(repo = new Repository(), options = {}) {
 
   // Day drill-down: TradeZella-style daily stats, the day's trades, and an
   // intraday cumulative-P&L series for the chart.
-  app.get('/api/day', auth, wrap((req, res) => {
+  app.get('/api/day', gate, wrap((req, res) => {
     const { accountId, date } = req.query;
     if (!isValidDateKey(date)) {
       return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
@@ -308,7 +367,7 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // Upsert the journal note for a day (empty body clears it).
-  app.put('/api/day/note', auth, wrap((req, res) => {
+  app.put('/api/day/note', gate, wrap((req, res) => {
     const { accountId, date, note } = req.body || {};
     if (!isValidDateKey(date)) {
       return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
@@ -319,7 +378,7 @@ export function createApp(repo = new Repository(), options = {}) {
 
   // Reports: performance breakdowns by symbol / side / weekday / hour / tag,
   // plus hold-time and streak summaries.
-  app.get('/api/analytics', auth, wrap((req, res) => {
+  app.get('/api/analytics', gate, wrap((req, res) => {
     const { accountId, from, to } = req.query;
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
@@ -330,7 +389,7 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // Setup playbook: per-strategy performance breakdown (scope/period/basis aware).
-  app.get('/api/playbook', auth, wrap((req, res) => {
+  app.get('/api/playbook', gate, wrap((req, res) => {
     const { accountId, from, to } = req.query;
     if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
       return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });

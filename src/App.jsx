@@ -11,6 +11,7 @@ import EquityChart from './components/EquityChart.jsx';
 import Reports from './components/Reports.jsx';
 import ScoreCard from './components/ScoreCard.jsx';
 import TagManager from './components/TagManager.jsx';
+import Paywall from './components/Paywall.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -41,16 +42,29 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayDetail, setDayDetail] = useState(null);
   const [dayLoading, setDayLoading] = useState(false);
+  const [billing, setBilling] = useState(null); // entitlement (null = loading)
 
-  // Load accounts on login
+  // Resolve entitlement (trial / subscription) before loading any data.
+  const refreshBilling = useCallback(() => {
+    return api.billingStatus()
+      .then(({ billing }) => { setBilling(billing); return billing; })
+      .catch(() => null);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
+    refreshBilling();
+  }, [user, refreshBilling]);
+
+  // Load accounts once entitled (data routes 402 when the trial has lapsed).
+  useEffect(() => {
+    if (!user || !billing || !billing.entitled) return;
     api.listAccounts().then(({ accounts }) => {
       setAccounts(accounts);
       if (accounts.length > 0) setActiveId((id) => id || accounts[0].id);
       else setShowNewAccount(true);
     }).catch(() => logout());
-  }, [user]);
+  }, [user, billing]);
 
   // The core state-transition: refresh metrics + trades + calendar together.
   // `range` (period bounds) scopes metrics, score, charts, reports, and the log;
@@ -114,6 +128,7 @@ export default function App() {
     setSelectedDate(null);
     setDayDetail(null);
     setTradeFilter(EMPTY_FILTER);
+    setBilling(null);
   };
 
   // Apply an updated trade to both the main log and any open day drill-down.
@@ -214,6 +229,19 @@ export default function App() {
 
   if (!user) return <Auth onAuthed={setUser} />;
 
+  // Gate the whole app on entitlement. While billing is loading, render nothing
+  // (avoids a flash of the dashboard before a possible paywall).
+  if (billing === null) return <div className="app-loading" />;
+  if (!billing.entitled) {
+    return (
+      <Paywall
+        billing={billing}
+        onActivated={() => refreshBilling()}
+        onLogout={logout}
+      />
+    );
+  }
+
   const isAll = activeId === 'all';
   const activeAccount = accounts.find((a) => a.id === activeId);
   // 'all' is a valid (aggregate) scope even though it isn't a real account.
@@ -250,6 +278,21 @@ export default function App() {
           <button className="btn-ghost" onClick={logout}>Sign out</button>
         </div>
       </div>
+
+      {billing.status === 'trialing' && (
+        <div className="trial-banner">
+          <span>
+            {billing.daysLeft} day{billing.daysLeft !== 1 ? 's' : ''} left in your free trial.
+          </span>
+          <button onClick={async () => {
+            const session = await api.startCheckout();
+            if (session.mock) { await api.mockCompleteCheckout(); refreshBilling(); }
+            else if (session.url) window.location.href = session.url;
+          }}>
+            Upgrade now
+          </button>
+        </div>
+      )}
 
       <div className="container">
         {!scopeReady ? (

@@ -279,6 +279,18 @@ tbody tr:hover { background: var(--surface-2); }
 .sso-apple:hover:not(:disabled) { background: #1a1a1a; }
 .sso-divider { width: 100%; text-align: center; border-top: 1px solid var(--border); line-height: 0; margin: 6px 0; }
 .sso-divider span { background: var(--surface); color: var(--muted); padding: 0 10px; font-size: 12px; }
+
+.app-loading { min-height: 100vh; background: var(--bg); }
+.paywall-card { max-width: 420px; }
+.price-tag { display: flex; align-items: baseline; gap: 6px; margin: 8px 0 16px; }
+.price-amount { font-size: 38px; font-weight: 800; color: var(--text); }
+.price-period { color: var(--muted); font-size: 15px; }
+.paywall-features { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 9px; }
+.paywall-features li { position: relative; padding-left: 26px; font-size: 13px; color: var(--text); }
+.paywall-features li::before { content: '✓'; position: absolute; left: 0; top: -1px; width: 18px; height: 18px; background: var(--accent-bg); color: var(--accent); border-radius: 50%; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+.trial-banner { display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--accent-bg); color: var(--accent); padding: 9px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); }
+.trial-banner button { background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 5px 14px; font-weight: 700; font-size: 12px; cursor: pointer; }
+.trial-banner button:hover { background: #4f52d8; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .auth-card .btn-primary { width: 100%; padding: 11px; margin-top: 4px; }

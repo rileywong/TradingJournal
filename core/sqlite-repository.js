@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { hashPassword, verifyPassword } from './auth.js';
 import { RepoError } from './repository.js';
+import { newTrial } from './billing.js';
 
 // Load the built-in native module via require so bundlers (Vite/Vitest) don't
 // try to transform/resolve `node:sqlite` themselves.
@@ -63,9 +64,17 @@ export class SqliteRepository {
       );
     `);
     // Additive migration: ensure `setup` exists on databases created before it.
-    const cols = this.db.prepare('PRAGMA table_info(trade_attrs)').all().map((c) => c.name);
-    if (!cols.includes('setup')) {
+    const attrCols = this.db.prepare('PRAGMA table_info(trade_attrs)').all().map((c) => c.name);
+    if (!attrCols.includes('setup')) {
       this.db.exec('ALTER TABLE trade_attrs ADD COLUMN setup TEXT');
+    }
+    // Additive migration: subscription columns on users.
+    const userCols = this.db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+    for (const [col, type] of [
+      ['subscriptionStatus', 'TEXT'], ['trialEndsAt', 'TEXT'],
+      ['currentPeriodEnd', 'TEXT'], ['stripeCustomerId', 'TEXT'],
+    ]) {
+      if (!userCols.includes(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
     }
   }
 
@@ -83,9 +92,9 @@ export class SqliteRepository {
     if (this.db.prepare('SELECT 1 FROM users WHERE email = ?').get(normEmail)) {
       throw new RepoError('email already registered', 409);
     }
-    const user = { id: uuid(), email: normEmail, passwordHash: hashPassword(password), createdAt: new Date().toISOString() };
-    this.db.prepare('INSERT INTO users (id, email, passwordHash, createdAt) VALUES (?, ?, ?, ?)')
-      .run(user.id, user.email, user.passwordHash, user.createdAt);
+    const trial = newTrial();
+    const user = { id: uuid(), email: normEmail, passwordHash: hashPassword(password), createdAt: new Date().toISOString(), ...trial };
+    this.#insertUser(user);
     return this.publicUser(user);
   }
 
@@ -117,9 +126,8 @@ export class SqliteRepository {
 
     let user = this.db.prepare('SELECT * FROM users WHERE email = ?').get(normEmail);
     if (!user) {
-      user = { id: uuid(), email: normEmail, passwordHash: null, createdAt: new Date().toISOString() };
-      this.db.prepare('INSERT INTO users (id, email, passwordHash, createdAt) VALUES (?, ?, ?, ?)')
-        .run(user.id, user.email, user.passwordHash, user.createdAt);
+      user = { id: uuid(), email: normEmail, passwordHash: null, createdAt: new Date().toISOString(), ...newTrial() };
+      this.#insertUser(user);
     }
     this.db.prepare('INSERT OR REPLACE INTO oauth_identities (provider, sub, userId) VALUES (?, ?, ?)')
       .run(provider, sub, user.id);
@@ -128,6 +136,38 @@ export class SqliteRepository {
 
   publicUser(user) {
     return { id: user.id, email: user.email, createdAt: user.createdAt };
+  }
+
+  #insertUser(user) {
+    this.db.prepare(`
+      INSERT INTO users (id, email, passwordHash, createdAt, subscriptionStatus, trialEndsAt, currentPeriodEnd)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(user.id, user.email, user.passwordHash, user.createdAt,
+      user.subscriptionStatus || null, user.trialEndsAt || null, user.currentPeriodEnd || null);
+  }
+
+  getSubscription(userId) {
+    const u = this.db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    return {
+      subscriptionStatus: u.subscriptionStatus || 'trialing',
+      trialEndsAt: u.trialEndsAt || null,
+      currentPeriodEnd: u.currentPeriodEnd || null,
+      stripeCustomerId: u.stripeCustomerId || null,
+    };
+  }
+
+  setSubscription(userId, { subscriptionStatus, currentPeriodEnd, trialEndsAt, stripeCustomerId } = {}) {
+    const cur = this.getSubscription(userId);
+    const next = {
+      subscriptionStatus: subscriptionStatus ?? cur.subscriptionStatus,
+      currentPeriodEnd: currentPeriodEnd !== undefined ? currentPeriodEnd : cur.currentPeriodEnd,
+      trialEndsAt: trialEndsAt !== undefined ? trialEndsAt : cur.trialEndsAt,
+      stripeCustomerId: stripeCustomerId !== undefined ? stripeCustomerId : cur.stripeCustomerId,
+    };
+    this.db.prepare('UPDATE users SET subscriptionStatus = ?, currentPeriodEnd = ?, trialEndsAt = ?, stripeCustomerId = ? WHERE id = ?')
+      .run(next.subscriptionStatus, next.currentPeriodEnd, next.trialEndsAt, next.stripeCustomerId, userId);
+    return next;
   }
 
   // --- accounts ----------------------------------------------------------

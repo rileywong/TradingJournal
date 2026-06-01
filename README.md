@@ -56,6 +56,12 @@ institutional-grade performance metrics on a professional dashboard.
   calendar, and a filterable, sortable trade log (filter by symbol / side /
   outcome / tag / date) with interactive custom tags that persist across
   re-imports.
+- **Setup playbook** — assign a strategy to each trade and see per-setup win
+  rate, profit factor, expectancy, and average R; filter the log by setup.
+- **Trial & paywall** — every account starts a 7-day free trial; afterwards a
+  subscription is required (data routes return `402`, the UI shows a paywall).
+  Billing is provider-pluggable — a dev provider completes checkout locally;
+  wire Stripe by passing a billing provider to `createApp`.
 
 ## Stack
 
@@ -102,7 +108,7 @@ existing `dist/` build.)
 npm test
 ```
 
-245 tests across the CSV tokenizer, tolerant date parser, broker detection,
+256 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics

@@ -7,6 +7,7 @@
 
 import crypto from 'node:crypto';
 import { hashPassword, verifyPassword } from './auth.js';
+import { newTrial } from './billing.js';
 
 function uuid() {
   return crypto.randomUUID();
@@ -52,6 +53,7 @@ export class Repository {
         email: normEmail,
         passwordHash: null, // password-less; sign-in is via the provider
         createdAt: new Date().toISOString(),
+        ...newTrial(),
       };
       this.users.set(user.id, user);
       this.usersByEmail.set(normEmail, user.id);
@@ -94,6 +96,7 @@ export class Repository {
       email: normEmail,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
+      ...newTrial(),
     };
     this.users.set(user.id, user);
     this.usersByEmail.set(normEmail, user.id);
@@ -117,6 +120,29 @@ export class Repository {
 
   publicUser(user) {
     return { id: user.id, email: user.email, createdAt: user.createdAt };
+  }
+
+  /** The user's subscription record (status + trial/period bounds). */
+  getSubscription(userId) {
+    const user = this.users.get(userId);
+    if (!user) throw new RepoError('unauthorized', 401);
+    return {
+      subscriptionStatus: user.subscriptionStatus || 'trialing',
+      trialEndsAt: user.trialEndsAt || null,
+      currentPeriodEnd: user.currentPeriodEnd || null,
+      stripeCustomerId: user.stripeCustomerId || null,
+    };
+  }
+
+  /** Update subscription fields (unspecified fields are preserved). */
+  setSubscription(userId, { subscriptionStatus, currentPeriodEnd, trialEndsAt, stripeCustomerId } = {}) {
+    const user = this.users.get(userId);
+    if (!user) throw new RepoError('unauthorized', 401);
+    if (subscriptionStatus !== undefined) user.subscriptionStatus = subscriptionStatus;
+    if (currentPeriodEnd !== undefined) user.currentPeriodEnd = currentPeriodEnd;
+    if (trialEndsAt !== undefined) user.trialEndsAt = trialEndsAt;
+    if (stripeCustomerId !== undefined) user.stripeCustomerId = stripeCustomerId;
+    return this.getSubscription(userId);
   }
 
   // --- accounts ----------------------------------------------------------
