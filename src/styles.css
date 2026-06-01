@@ -284,6 +284,14 @@ tbody tr:hover { background: var(--surface-2); }
 .score-row .bar span { display: block; height: 100%; border-radius: 999px; }
 .score-row-val { font-size: 13px; font-weight: 700; text-align: right; color: var(--muted); }
 
+/* ── Tag manager ──────────────────────────────────────────────────────── */
+.modal.tag-manager { max-width: 480px; }
+.tag-manager-list { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
+.tag-manager-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); }
+.tag-manager-row .tag-pill { background: var(--accent-bg); color: var(--accent); font-weight: 600; font-size: 13px; padding: 3px 10px; border-radius: 999px; }
+.tag-manager-actions { display: flex; gap: 6px; }
+.tag-rename-input { flex: 1; font: inherit; font-size: 13px; padding: 6px 10px; border: 1px solid var(--accent); border-radius: 8px; outline: none; box-shadow: 0 0 0 3px var(--accent-bg); }
+
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin: 4px 0 4px; }
 .tab {

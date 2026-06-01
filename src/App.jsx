@@ -10,6 +10,7 @@ import DayDetail from './components/DayDetail.jsx';
 import EquityChart from './components/EquityChart.jsx';
 import Reports from './components/Reports.jsx';
 import ScoreCard from './components/ScoreCard.jsx';
+import TagManager from './components/TagManager.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -35,6 +36,7 @@ export default function App() {
   });
   const [showNewAccount, setShowNewAccount] = useState(false);
   const [editAccount, setEditAccount] = useState(null);
+  const [showTagManager, setShowTagManager] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [dayDetail, setDayDetail] = useState(null);
   const [dayLoading, setDayLoading] = useState(false);
@@ -313,6 +315,7 @@ export default function App() {
                   onTag={onTag}
                   onRisk={onRisk}
                   onTradeNote={onTradeNote}
+                  onManageTags={() => setShowTagManager(true)}
                   filter={tradeFilter}
                   onFilterChange={setTradeFilter}
                 />
@@ -340,6 +343,17 @@ export default function App() {
           onRisk={onRisk}
           onTradeNote={onTradeNote}
           onSaveNote={saveDayNote}
+        />
+      )}
+
+      {showTagManager && activeAccount && (
+        <TagManager
+          accountId={activeId}
+          onClose={() => setShowTagManager(false)}
+          onChanged={() => {
+            refreshDashboard(activeId, cursor, periodRange(period), basis);
+            loadYear(activeId, yearCursor, basis);
+          }}
         />
       )}
 

@@ -37,6 +37,53 @@ describe('updateAccount', () => {
   });
 });
 
+describe('tag management', () => {
+  beforeEach(() => {
+    // two distinct trades, tagged
+    repo.saveImport(userId, accountId, [], [
+      { symbol: 'AAPL', side: 'LONG', quantity: 100, entryPrice: 1, exitPrice: 2, openedAt: '2024-03-04T10:00:00Z', closedAt: '2024-03-04T11:00:00Z', netPnl: 10, grossPnl: 10, tags: [] },
+      { symbol: 'TSLA', side: 'LONG', quantity: 50, entryPrice: 1, exitPrice: 2, openedAt: '2024-03-05T10:00:00Z', closedAt: '2024-03-05T11:00:00Z', netPnl: 20, grossPnl: 20, tags: [] },
+    ]);
+    const trades = repo.listTrades(userId, accountId);
+    repo.updateTradeTags(userId, trades[0].id, ['Breakout', 'News']);
+    repo.updateTradeTags(userId, trades[1].id, ['Breakout']);
+  });
+
+  it('renames a tag across all trades and de-dupes', () => {
+    const r = repo.renameTag(userId, accountId, 'Breakout', 'News'); // News already on trade 0
+    expect(r.affected).toBe(2);
+    const trades = repo.listTrades(userId, accountId);
+    expect(trades[0].tags).toEqual(['News']); // Breakout→News merged with existing News
+    expect(trades[1].tags).toEqual(['News']);
+  });
+
+  it('removes a tag from all trades', () => {
+    const r = repo.removeTag(userId, accountId, 'Breakout');
+    expect(r.affected).toBe(2);
+    const trades = repo.listTrades(userId, accountId);
+    expect(trades[0].tags).toEqual(['News']);
+    expect(trades[1].tags).toEqual([]);
+  });
+
+  it('persists a rename across a re-import (durable store updated)', () => {
+    repo.renameTag(userId, accountId, 'Breakout', 'Momentum');
+    // re-import the same two trades
+    repo.saveImport(userId, accountId, [], [
+      { symbol: 'AAPL', side: 'LONG', quantity: 100, entryPrice: 1, exitPrice: 2, openedAt: '2024-03-04T10:00:00Z', closedAt: '2024-03-04T11:00:00Z', netPnl: 10, grossPnl: 10, tags: [] },
+      { symbol: 'TSLA', side: 'LONG', quantity: 50, entryPrice: 1, exitPrice: 2, openedAt: '2024-03-05T10:00:00Z', closedAt: '2024-03-05T11:00:00Z', netPnl: 20, grossPnl: 20, tags: [] },
+    ]);
+    const trades = repo.listTrades(userId, accountId);
+    expect(trades.find((t) => t.symbol === 'TSLA').tags).toContain('Momentum');
+  });
+
+  it('validates inputs and enforces RLS', () => {
+    expect(() => repo.renameTag(userId, accountId, '', 'X')).toThrow(RepoError);
+    expect(() => repo.removeTag(userId, accountId, '  ')).toThrow(RepoError);
+    const other = repo.createUser('tagintruder@example.com', 'secret123');
+    expect(() => repo.renameTag(other.id, accountId, 'Breakout', 'X')).toThrow(RepoError);
+  });
+});
+
 describe('deleteAccount', () => {
   it('removes the account and cascades to its data', () => {
     // seed trades, a note, and a tag

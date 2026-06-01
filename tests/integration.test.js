@@ -194,6 +194,26 @@ describe('account management', () => {
     expect(trades.status).toBe(404);
   });
 
+  it('renames and deletes tags across the account over the API', async () => {
+    const user = await registerUser('tagmgmt@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    const trades = (await request(app).get(`/api/trades?accountId=${acct.id}`).set(h)).body.trades;
+    await request(app).patch(`/api/trades/${trades[0].id}`).set(h).send({ tags: ['Breakout'] });
+    await request(app).patch(`/api/trades/${trades[1].id}`).set(h).send({ tags: ['Breakout'] });
+
+    const ren = await request(app).post(`/api/accounts/${acct.id}/tags/rename`).set(h).send({ from: 'Breakout', to: 'Momentum' });
+    expect(ren.body.result.affected).toBe(2);
+    let after = (await request(app).get(`/api/trades?accountId=${acct.id}&tag=Momentum`).set(h)).body.trades;
+    expect(after).toHaveLength(2);
+
+    const del = await request(app).post(`/api/accounts/${acct.id}/tags/delete`).set(h).send({ tag: 'Momentum' });
+    expect(del.body.result.affected).toBe(2);
+    after = (await request(app).get(`/api/trades?accountId=${acct.id}&tag=Momentum`).set(h)).body.trades;
+    expect(after).toHaveLength(0);
+  });
+
   it('enforces RLS on update and delete', async () => {
     const alice = await registerUser('alice6@example.com');
     const bob = await registerUser('bob6@example.com');

@@ -25,7 +25,7 @@ export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '' };
  * shared core `filterTrades`, matching GET /api/trades semantics without a
  * round-trip.
  */
-export default function TradeLog({ trades, onTag, onRisk, onTradeNote, filter = EMPTY_FILTER, onFilterChange }) {
+export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onManageTags, filter = EMPTY_FILTER, onFilterChange }) {
   const f = filter;
   const setFilter = onFilterChange || (() => {});
 
@@ -63,6 +63,11 @@ export default function TradeLog({ trades, onTag, onRisk, onTradeNote, filter = 
         </span>
         {active && (
           <button className="btn-ghost" onClick={() => setFilter(EMPTY_FILTER)}>Clear</button>
+        )}
+        {onManageTags && (
+          <button className="btn-ghost" onClick={onManageTags} title="Rename or delete tags across all trades">
+            Manage tags
+          </button>
         )}
         <button
           className="btn-ghost"

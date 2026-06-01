@@ -240,6 +240,42 @@ export class Repository {
     return trade;
   }
 
+  /** Rename a tag across every trade in the account (durable store included). */
+  renameTag(userId, accountId, from, to) {
+    this.getAccount(userId, accountId); // RLS gate
+    const oldTag = String(from || '').trim();
+    const newTag = String(to || '').trim();
+    if (!oldTag || !newTag) throw new RepoError('from and to tags required', 400);
+    let affected = 0;
+    if (oldTag === newTag) return { affected, from: oldTag, to: newTag };
+    for (const t of this.trades.values()) {
+      if (t.accountId !== accountId || !t.tags.includes(oldTag)) continue;
+      const next = [...new Set(t.tags.map((x) => (x === oldTag ? newTag : x)))];
+      t.tags = next;
+      this.tradeTags.set(`${accountId}::${this.tradeSignature(t)}`, [...next]);
+      affected += 1;
+    }
+    return { affected, from: oldTag, to: newTag };
+  }
+
+  /** Remove a tag from every trade in the account (durable store included). */
+  removeTag(userId, accountId, tag) {
+    this.getAccount(userId, accountId); // RLS gate
+    const target = String(tag || '').trim();
+    if (!target) throw new RepoError('tag required', 400);
+    let affected = 0;
+    for (const t of this.trades.values()) {
+      if (t.accountId !== accountId || !t.tags.includes(target)) continue;
+      const next = t.tags.filter((x) => x !== target);
+      t.tags = next;
+      const key = `${accountId}::${this.tradeSignature(t)}`;
+      if (next.length === 0) this.tradeTags.delete(key);
+      else this.tradeTags.set(key, [...next]);
+      affected += 1;
+    }
+    return { affected, tag: target };
+  }
+
   listExecutions(userId, accountId) {
     this.getAccount(userId, accountId); // RLS gate
     return [...this.executions.values()].filter((e) => e.accountId === accountId);

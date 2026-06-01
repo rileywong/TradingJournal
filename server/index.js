@@ -101,6 +101,17 @@ export function createApp(repo = new Repository()) {
     res.json({ ok: true });
   }));
 
+  // Tag management across an account's trades.
+  app.post('/api/accounts/:id/tags/rename', auth, wrap((req, res) => {
+    const { from, to } = req.body || {};
+    res.json({ result: repo.renameTag(req.userId, req.params.id, from, to) });
+  }));
+
+  app.post('/api/accounts/:id/tags/delete', auth, wrap((req, res) => {
+    const { tag } = req.body || {};
+    res.json({ result: repo.removeTag(req.userId, req.params.id, tag) });
+  }));
+
   // --- import ------------------------------------------------------------
   app.post('/api/import', auth, wrap((req, res) => {
     const { accountId, csv, broker } = req.body || {};
