@@ -40,6 +40,14 @@ async function request(path, { method = 'GET', body, auth = true } = {}) {
   return data;
 }
 
+// Append non-empty query params (e.g. period from/to bounds).
+function qs(params = {}) {
+  return Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .map(([k, v]) => `&${k}=${encodeURIComponent(v)}`)
+    .join('');
+}
+
 export const api = {
   register: (email, password) =>
     request('/auth/register', { method: 'POST', body: { email, password }, auth: false }),
@@ -51,15 +59,15 @@ export const api = {
   deleteAccount: (id) => request(`/accounts/${id}`, { method: 'DELETE' }),
   importCsv: (accountId, csv, broker) =>
     request('/import', { method: 'POST', body: { accountId, csv, broker } }),
-  getTrades: (accountId) => request(`/trades?accountId=${accountId}`),
+  getTrades: (accountId, range = {}) => request(`/trades?accountId=${accountId}${qs(range)}`),
   tagTrade: (id, tags) => request(`/trades/${id}`, { method: 'PATCH', body: { tags } }),
   setTradeRisk: (id, riskAmount) => request(`/trades/${id}`, { method: 'PATCH', body: { riskAmount } }),
-  getMetrics: (accountId) => request(`/metrics?accountId=${accountId}`),
+  getMetrics: (accountId, range = {}) => request(`/metrics?accountId=${accountId}${qs(range)}`),
   getCalendar: (accountId, year, month) =>
     request(`/calendar?accountId=${accountId}&year=${year}&month=${month}`),
   getDay: (accountId, date) =>
     request(`/day?accountId=${accountId}&date=${date}`),
-  getAnalytics: (accountId) => request(`/analytics?accountId=${accountId}`),
+  getAnalytics: (accountId, range = {}) => request(`/analytics?accountId=${accountId}${qs(range)}`),
   setDayNote: (accountId, date, note) =>
     request('/day/note', { method: 'PUT', body: { accountId, date, note } }),
 };

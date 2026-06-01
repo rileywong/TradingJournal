@@ -230,7 +230,7 @@ reports update atomically — the core state-transition guarantee verified in
 | `POST /api/import`       | Import a brokerage CSV (RLS-gated)                            |
 | `GET  /api/trades`       | Trade log; optional `symbol/side/tag/outcome/from/to` filters |
 | `PATCH /api/trades/:id`  | Update tags and/or planned `riskAmount` (durable by signature)|
-| `GET  /api/metrics`      | Snapshot + `equityCurve` + `drawdownCurve` + `score`          |
+| `GET  /api/metrics`      | Snapshot + `equityCurve` + `drawdownCurve` + `score` (optional `from/to`) |
 | `GET  /api/calendar`     | Monthly P&L grid (+ weekly roll-ups) + `notedDays`           |
 | `GET  /api/day`          | Daily stats + that day's trades + intraday curve + note       |
 | `PUT  /api/day/note`     | Upsert a day's journal note (empty clears)                    |
@@ -289,3 +289,5 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 12. ✅ Account management (edit / delete with cascade)
 13. ✅ Weekly P&L roll-ups on the calendar
 14. ✅ Per-trade risk + R-multiple analytics
+15. ✅ Reports→trade-log drill filtering; shared BaseChart
+16. ✅ Dashboard period selector (All / 30d / MTD / YTD)

@@ -100,6 +100,42 @@ describe('row-level security (user isolation)', () => {
   });
 });
 
+describe('period-scoped metrics & analytics', () => {
+  it('scopes metrics, score, and analytics to a date range', async () => {
+    const user = await registerUser('period@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    // All time: both trades (AAPL +298 on 03-04, TSLA +149 on 03-05) → 447
+    const all = await request(app).get(`/api/metrics?accountId=${acct.id}`).set(h);
+    expect(all.body.metrics.netPnl).toBe(447);
+    expect(all.body.metrics.totalTrades).toBe(2);
+
+    // Scope to just 2024-03-04 → only AAPL
+    const day1 = await request(app)
+      .get(`/api/metrics?accountId=${acct.id}&from=2024-03-04&to=2024-03-04`)
+      .set(h);
+    expect(day1.body.metrics.netPnl).toBe(298);
+    expect(day1.body.metrics.totalTrades).toBe(1);
+    expect(day1.body.equityCurve).toHaveLength(1);
+
+    const an = await request(app)
+      .get(`/api/analytics?accountId=${acct.id}&from=2024-03-05&to=2024-03-05`)
+      .set(h);
+    expect(an.body.analytics.overall.netPnl).toBe(149);
+    expect(an.body.analytics.bySymbol.map((s) => s.key)).toEqual(['TSLA']);
+  });
+
+  it('rejects a malformed from/to on metrics', async () => {
+    const user = await registerUser('periodbad@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    const res = await request(app).get(`/api/metrics?accountId=${acct.id}&from=2024-3-4`).set(h);
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('account management', () => {
   it('updates and deletes an account (with cascade) over the API', async () => {
     const user = await registerUser('mgmt@example.com');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, getStoredUser, clearSession } from './api.js';
+import { PERIODS, periodRange } from '../core/period.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
 import PnlCalendar from './components/PnlCalendar.jsx';
@@ -20,6 +21,7 @@ export default function App() {
   const [drawdownCurve, setDrawdownCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [view, setView] = useState('dashboard');
+  const [period, setPeriod] = useState('all');
   const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
   const [trades, setTrades] = useState([]);
   const [calendar, setCalendar] = useState(null);
@@ -45,13 +47,15 @@ export default function App() {
   }, [user]);
 
   // The core state-transition: refresh metrics + trades + calendar together.
-  const refreshDashboard = useCallback(async (accountId, cur) => {
+  // `range` (period bounds) scopes metrics, score, charts, reports, and the log;
+  // the calendar stays month-navigated.
+  const refreshDashboard = useCallback(async (accountId, cur, range = {}) => {
     if (!accountId) return;
     const [m, t, c, a] = await Promise.all([
-      api.getMetrics(accountId),
-      api.getTrades(accountId),
+      api.getMetrics(accountId, range),
+      api.getTrades(accountId, range),
       api.getCalendar(accountId, cur.year, cur.month),
-      api.getAnalytics(accountId),
+      api.getAnalytics(accountId, range),
     ]);
     setMetrics(m.metrics);
     setScore(m.score || null);
@@ -64,8 +68,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeId) refreshDashboard(activeId, cursor);
-  }, [activeId, cursor, refreshDashboard]);
+    if (activeId) refreshDashboard(activeId, cursor, periodRange(period));
+  }, [activeId, cursor, period, refreshDashboard]);
 
   // Switching accounts closes any open day drill-down (it belonged to the
   // previous account's dataset).
@@ -222,6 +226,17 @@ export default function App() {
               >
                 Reports
               </button>
+              <div className="period-seg" role="group" aria-label="Date range">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.key}
+                    className={`period-btn ${period === p.key ? 'active' : ''}`}
+                    onClick={() => setPeriod(p.key)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {view === 'dashboard' ? (
@@ -250,7 +265,7 @@ export default function App() {
                     <ImportPanel
                       accountId={activeId}
                       onImported={() => {
-                        refreshDashboard(activeId, cursor);
+                        refreshDashboard(activeId, cursor, periodRange(period));
                         if (selectedDate) openDay(selectedDate);
                       }}
                     />
@@ -303,7 +318,7 @@ export default function App() {
             setAccounts((prev) => prev.map((a) => (a.id === acct.id ? acct : a)));
             setEditAccount(null);
             // Starting balance / commission affect the snapshot — refresh.
-            refreshDashboard(acct.id, cursor);
+            refreshDashboard(acct.id, cursor, periodRange(period));
           }}
           onDeleted={(id) => {
             setEditAccount(null);

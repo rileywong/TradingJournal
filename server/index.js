@@ -147,9 +147,12 @@ export function createApp(repo = new Repository()) {
   }));
 
   app.get('/api/metrics', auth, wrap((req, res) => {
-    const { accountId } = req.query;
+    const { accountId, from, to } = req.query;
+    if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
+      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    }
     const account = repo.getAccount(req.userId, accountId);
-    const trades = repo.listTrades(req.userId, accountId);
+    const trades = filterTrades(repo.listTrades(req.userId, accountId), { from, to });
     res.json({
       metrics: computeMetrics(trades, { startingBalance: account.startingBalance }),
       equityCurve: equityCurve(trades, account.startingBalance),
@@ -201,8 +204,11 @@ export function createApp(repo = new Repository()) {
   // Reports: performance breakdowns by symbol / side / weekday / hour / tag,
   // plus hold-time and streak summaries.
   app.get('/api/analytics', auth, wrap((req, res) => {
-    const { accountId } = req.query;
-    const trades = repo.listTrades(req.userId, accountId); // RLS gate
+    const { accountId, from, to } = req.query;
+    if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
+      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    }
+    const trades = filterTrades(repo.listTrades(req.userId, accountId), { from, to }); // RLS gate
     res.json({ analytics: buildAnalytics(trades) });
   }));
 

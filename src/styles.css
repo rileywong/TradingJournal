@@ -285,6 +285,10 @@ tbody tr:hover { background: var(--surface-2); }
 }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.period-seg { margin-left: auto; display: inline-flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 3px; align-self: center; margin-bottom: 6px; }
+.period-btn { background: transparent; border: none; color: var(--muted); font-weight: 600; font-size: 12px; padding: 5px 11px; border-radius: 6px; cursor: pointer; }
+.period-btn:hover { color: var(--text); }
+.period-btn.active { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(16,24,40,0.1); }
 
 /* ── Reports ──────────────────────────────────────────────────────────── */
 .reports-grid {

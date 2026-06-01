@@ -39,6 +39,7 @@ export {
 export { tradesToCsv } from './export.js';
 export { computeScore } from './score.js';
 export { filterTrades, distinctSymbols, distinctTags } from './filters.js';
+export { PERIODS, periodRange } from './period.js';
 export {
   hashPassword,
   verifyPassword,

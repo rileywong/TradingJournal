@@ -15,7 +15,9 @@ function downloadCsv(trades) {
   URL.revokeObjectURL(url);
 }
 
-export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '', from: '', to: '' };
+// Date scoping is owned by the dashboard period selector; the in-log filter
+// covers the categorical dimensions.
+export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '' };
 
 /**
  * Trade log with a filter bar. Controlled: the parent owns the `filter` so other
@@ -56,8 +58,6 @@ export default function TradeLog({ trades, onTag, onRisk, filter = EMPTY_FILTER,
           <option value="">All tags</option>
           {tags.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <input type="date" value={f.from} onChange={set('from')} aria-label="From date" />
-        <input type="date" value={f.to} onChange={set('to')} aria-label="To date" />
         <span className="filter-count muted">
           {filtered.length} of {trades.length}
         </span>
