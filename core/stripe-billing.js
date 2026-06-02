@@ -100,6 +100,19 @@ export function stripeBilling({
       return { url: session.url, id: session.id };
     },
 
+    // Create a Billing Portal session so an active subscriber can update payment
+    // details, switch plans, or cancel. Requires the Stripe customer id we stored
+    // from checkout.
+    async createPortal(userId, { stripeCustomerId, origin } = {}) {
+      if (!stripeCustomerId) throw new Error('no Stripe customer for this account');
+      const base = origin || appUrl || '';
+      const session = await api('POST', '/billing_portal/sessions', {
+        customer: stripeCustomerId,
+        return_url: `${base}/`,
+      });
+      return { url: session.url };
+    },
+
     // Verify + interpret a webhook event into a subscription update (or null to
     // ignore). The server persists the result via repo.setSubscription().
     async handleWebhook(req) {

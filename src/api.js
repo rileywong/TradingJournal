@@ -61,6 +61,7 @@ export const api = {
   billingStatus: () => request('/billing/status'),
   startCheckout: () => request('/billing/checkout', { method: 'POST' }),
   mockCompleteCheckout: () => request('/billing/mock-complete', { method: 'POST' }),
+  openBillingPortal: () => request('/billing/portal', { method: 'POST' }),
   listAccounts: () => request('/accounts'),
   createAccount: (body) => request('/accounts', { method: 'POST', body }),
   updateAccount: (id, body) => request(`/accounts/${id}`, { method: 'PATCH', body }),

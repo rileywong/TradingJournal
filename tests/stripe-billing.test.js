@@ -75,6 +75,28 @@ describe('stripeBilling.createCheckout', () => {
   });
 });
 
+describe('stripeBilling.createPortal', () => {
+  it('POSTs a billing-portal session for the customer and returns its URL', async () => {
+    let captured;
+    const fetchImpl = async (url, opts) => {
+      captured = { url, opts };
+      return { ok: true, json: async () => ({ url: 'https://billing.stripe.com/p/session_1' }) };
+    };
+    const billing = stripeBilling({ secretKey: 'sk_test', priceId: 'price', webhookSecret: SECRET, fetchImpl });
+    const out = await billing.createPortal('user-1', { stripeCustomerId: 'cus_42', origin: 'https://app.example' });
+
+    expect(out.url).toBe('https://billing.stripe.com/p/session_1');
+    expect(captured.url).toBe('https://api.stripe.com/v1/billing_portal/sessions');
+    expect(captured.opts.body).toContain('customer=cus_42');
+    expect(captured.opts.body).toContain('return_url=https%3A%2F%2Fapp.example%2F');
+  });
+
+  it('refuses without a Stripe customer id', async () => {
+    const billing = stripeBilling({ secretKey: 'sk', priceId: 'price', webhookSecret: SECRET, fetchImpl: async () => ({}) });
+    await expect(billing.createPortal('u', {})).rejects.toThrow(/no Stripe customer/);
+  });
+});
+
 describe('stripeBilling.handleWebhook', () => {
   const provider = (fetchImpl) => stripeBilling({ secretKey: 'sk', priceId: 'price', webhookSecret: SECRET, fetchImpl });
   const reqFor = (event) => {

@@ -307,3 +307,4 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 27. ✅ Sign in with Google / Apple (OIDC ID-token verification, account linking)
 28. ✅ 7-day trial + paywall gating (provider-pluggable billing)
 29. ✅ Stripe billing provider (REST checkout + signed-webhook subscription sync)
+30. ✅ Stripe billing portal (self-serve manage/cancel for active subscribers)

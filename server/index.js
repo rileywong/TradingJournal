@@ -181,6 +181,20 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json(session);
   }));
 
+  // Open the provider's billing portal (manage payment method / cancel). Only
+  // available with a provider that supports it (e.g. Stripe) and an existing
+  // customer; 404 otherwise so the UI can hide the entry point.
+  app.post('/api/billing/portal', auth, wrapAsync(async (req, res) => {
+    if (!billing.createPortal) return res.status(404).json({ error: 'not found' });
+    const sub = repo.getSubscription(req.userId);
+    if (!sub.stripeCustomerId) return res.status(404).json({ error: 'no subscription to manage' });
+    const session = await billing.createPortal(req.userId, {
+      stripeCustomerId: sub.stripeCustomerId,
+      origin: req.headers.origin || process.env.APP_URL || '',
+    });
+    res.json(session);
+  }));
+
   // Dev-only: complete the mock checkout (no Stripe configured) by activating a
   // 30-day subscription. Disabled when a real billing provider is wired in.
   app.post('/api/billing/mock-complete', auth, wrap((req, res) => {

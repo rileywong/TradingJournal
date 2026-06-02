@@ -43,11 +43,12 @@ export default function App() {
   const [dayDetail, setDayDetail] = useState(null);
   const [dayLoading, setDayLoading] = useState(false);
   const [billing, setBilling] = useState(null); // entitlement (null = loading)
+  const [billingMode, setBillingMode] = useState(null); // 'stripe' | 'dev'
 
   // Resolve entitlement (trial / subscription) before loading any data.
   const refreshBilling = useCallback(() => {
     return api.billingStatus()
-      .then(({ billing }) => { setBilling(billing); return billing; })
+      .then(({ billing, mode }) => { setBilling(billing); setBillingMode(mode); return billing; })
       .catch(() => null);
   }, []);
 
@@ -274,6 +275,20 @@ export default function App() {
             </button>
           )}
           <button className="btn-ghost" onClick={() => setShowNewAccount(true)}>+ Account</button>
+          {billingMode === 'stripe' && billing.status === 'active' && (
+            <button
+              className="btn-ghost"
+              title="Manage subscription"
+              onClick={async () => {
+                try {
+                  const { url } = await api.openBillingPortal();
+                  if (url) window.location.href = url;
+                } catch { /* no portal available */ }
+              }}
+            >
+              Manage subscription
+            </button>
+          )}
           <span className="muted">{user.email}</span>
           <button className="btn-ghost" onClick={logout}>Sign out</button>
         </div>

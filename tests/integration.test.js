@@ -1125,6 +1125,9 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
       if (url.includes('/subscriptions/')) {
         return { ok: true, json: async () => ({ id: 'sub_1', current_period_end: periodEnd }) };
       }
+      if (url.includes('/billing_portal/sessions')) {
+        return { ok: true, json: async () => ({ url: 'https://billing.stripe.com/p/session_1' }) };
+      }
       throw new Error(`unexpected stripe call: ${url}`);
     };
     const billing = stripeBilling({ secretKey: 'sk_test', priceId: 'price_1', webhookSecret: WHSEC, fetchImpl });
@@ -1163,6 +1166,24 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
     expect(status.body).toMatchObject({ mode: 'stripe' });
     expect(status.body.billing).toMatchObject({ entitled: true, status: 'active' });
     expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(200);
+
+    // An active subscriber can open the billing portal to manage/cancel.
+    const portal = await request(sApp).post('/api/billing/portal').set(h);
+    expect(portal.status).toBe(200);
+    expect(portal.body.url).toBe('https://billing.stripe.com/p/session_1');
+  });
+
+  it('billing portal 404s before there is a Stripe customer to manage', async () => {
+    const { app: sApp } = await makeStripeApp();
+    const reg = await request(sApp).post('/api/auth/register').send({ email: 'stripe-noportal@example.com', password: 'secret123' });
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    expect((await request(sApp).post('/api/billing/portal').set(h)).status).toBe(404);
+  });
+
+  it('billing portal 404s with the dev provider (no portal support)', async () => {
+    const reg = await registerUser('dev-noportal@example.com');
+    const h = { Authorization: `Bearer ${reg.token}` };
+    expect((await request(app).post('/api/billing/portal').set(h)).status).toBe(404);
   });
 
   it('rejects a forged webhook with 400 and does not activate', async () => {
