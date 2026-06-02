@@ -309,6 +309,23 @@ export default function App() {
         </div>
       )}
 
+      {billing.status === 'past_due' && (
+        <div className="trial-banner grace-banner">
+          <span>
+            Your last payment failed. Update your payment method to keep your subscription
+            {billing.daysLeft ? ` — ${billing.daysLeft} day${billing.daysLeft !== 1 ? 's' : ''} of access left` : ''}.
+          </span>
+          <button onClick={async () => {
+            try {
+              const { url } = await api.openBillingPortal();
+              if (url) window.location.href = url;
+            } catch { /* no portal available */ }
+          }}>
+            Update payment
+          </button>
+        </div>
+      )}
+
       <div className="container">
         {!scopeReady ? (
           <div className="empty-state">Create an account to begin tracking trades.</div>

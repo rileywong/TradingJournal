@@ -43,7 +43,9 @@ describe('mapStatus', () => {
     expect(mapStatus('active')).toBe('active');
     expect(mapStatus('trialing')).toBe('active');
     expect(mapStatus('canceled')).toBe('canceled');
-    expect(mapStatus('past_due')).toBe('canceled');
+    expect(mapStatus('unpaid')).toBe('canceled');
+    expect(mapStatus('incomplete_expired')).toBe('canceled');
+    expect(mapStatus('past_due')).toBe('past_due'); // dunning → soft grace
   });
 });
 

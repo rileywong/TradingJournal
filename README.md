@@ -65,7 +65,10 @@ institutional-grade performance metrics on a professional dashboard.
   verification) activates by setting `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`,
   `STRIPE_WEBHOOK_SECRET` (point the Stripe webhook at `POST /api/billing/webhook`).
   Active subscribers get a **Manage subscription** button that opens the Stripe
-  billing portal to update payment details or cancel.
+  billing portal to update payment details or cancel. A failed renewal
+  (`past_due`) enters a **grace window** — access continues with an "update
+  payment method" banner instead of an immediate lockout — until payment
+  recovers or Stripe cancels the subscription.
 
 ## Stack
 
@@ -112,7 +115,7 @@ existing `dist/` build.)
 npm test
 ```
 
-274 tests across the CSV tokenizer, tolerant date parser, broker detection,
+279 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics

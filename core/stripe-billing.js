@@ -55,8 +55,8 @@ export function verifyStripeSignature(payload, header, secret, { toleranceSec = 
 /** Map a Stripe subscription status to our coarse status. */
 export function mapStatus(stripeStatus) {
   if (stripeStatus === 'active' || stripeStatus === 'trialing') return 'active';
-  if (stripeStatus === 'canceled' || stripeStatus === 'unpaid' || stripeStatus === 'incomplete_expired') return 'canceled';
-  return 'canceled'; // past_due / incomplete → treat as not entitled until resolved
+  if (stripeStatus === 'past_due') return 'past_due'; // dunning → soft grace window
+  return 'canceled'; // canceled / unpaid / incomplete(_expired) → not entitled
 }
 
 export function stripeBilling({

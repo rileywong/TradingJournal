@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeEntitlement, newTrial, TRIAL_DAYS } from '../core/billing.js';
+import { computeEntitlement, newTrial, TRIAL_DAYS, GRACE_DAYS } from '../core/billing.js';
 
 const NOW = Date.parse('2024-06-01T00:00:00.000Z');
 const days = (n) => new Date(NOW + n * 86_400_000).toISOString();
@@ -47,5 +47,29 @@ describe('computeEntitlement', () => {
     const e = computeEntitlement({ subscriptionStatus: 'trialing', trialEndsAt: new Date(NOW + 3600_000).toISOString() }, NOW);
     expect(e.entitled).toBe(true);
     expect(e.daysLeft).toBe(1);
+  });
+
+  describe('dunning grace (past_due)', () => {
+    it('keeps soft access during the grace window after a failed renewal', () => {
+      // Period lapsed 1 day ago; still within the GRACE_DAYS window.
+      const e = computeEntitlement({ subscriptionStatus: 'past_due', currentPeriodEnd: days(-1) }, NOW);
+      expect(e).toMatchObject({ entitled: true, status: 'past_due' });
+      expect(e.daysLeft).toBe(GRACE_DAYS - 1);
+    });
+
+    it('locks out once the grace window is exhausted', () => {
+      const e = computeEntitlement({ subscriptionStatus: 'past_due', currentPeriodEnd: days(-(GRACE_DAYS + 1)) }, NOW);
+      expect(e).toMatchObject({ entitled: false, status: 'expired' });
+    });
+
+    it('grants grace even without a period end (Stripe drives the eventual cancel)', () => {
+      const e = computeEntitlement({ subscriptionStatus: 'past_due', currentPeriodEnd: null }, NOW);
+      expect(e).toMatchObject({ entitled: true, status: 'past_due', daysLeft: null });
+    });
+
+    it('recovers to active when payment succeeds', () => {
+      const e = computeEntitlement({ subscriptionStatus: 'active', currentPeriodEnd: days(20) }, NOW);
+      expect(e.status).toBe('active');
+    });
   });
 });

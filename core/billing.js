@@ -6,6 +6,9 @@
 // and identical on server (gating) and client (paywall banner).
 
 export const TRIAL_DAYS = 7;
+// Dunning grace: after a renewal payment fails (Stripe → past_due) we keep
+// access for this long so the user can fix their card before being locked out.
+export const GRACE_DAYS = 7;
 const DAY_MS = 86_400_000;
 
 /** The subscription a brand-new user starts with: a trial ending in TRIAL_DAYS. */
@@ -22,7 +25,8 @@ export function newTrial(now = Date.now()) {
  * @param {{subscriptionStatus, trialEndsAt, currentPeriodEnd}} sub
  * @param {number} [now] epoch ms
  * @returns {{ entitled, status, trialEndsAt, currentPeriodEnd, daysLeft }}
- *   status ∈ active | trialing | trial_expired | expired | none
+ *   status ∈ active | trialing | past_due | trial_expired | expired | none
+ *   `past_due` is entitled (grace window) with daysLeft = grace days remaining.
  */
 export function computeEntitlement(sub, now = Date.now()) {
   const s = sub || {};
@@ -34,6 +38,17 @@ export function computeEntitlement(sub, now = Date.now()) {
     return base(true, 'active', s, null);
   }
 
+  // Dunning grace: a failed renewal keeps soft access for GRACE_DAYS past the
+  // (now-lapsed) paid period so the user can update their card before lockout.
+  if (s.subscriptionStatus === 'past_due') {
+    const graceEnd = periodEnd ? periodEnd + GRACE_DAYS * DAY_MS : 0;
+    if (!graceEnd || now <= graceEnd) {
+      const daysLeft = graceEnd ? Math.max(1, Math.ceil((graceEnd - now) / DAY_MS)) : null;
+      return base(true, 'past_due', s, daysLeft);
+    }
+    // grace exhausted → fall through to the hard paywall below.
+  }
+
   // Within the free trial window.
   if (trialEnd && now < trialEnd) {
     const daysLeft = Math.max(1, Math.ceil((trialEnd - now) / DAY_MS));
@@ -43,7 +58,7 @@ export function computeEntitlement(sub, now = Date.now()) {
   // Lapsed: distinguish an expired paid sub from an expired/absent trial so the
   // paywall can word itself appropriately.
   let status;
-  if (s.subscriptionStatus === 'active' || s.subscriptionStatus === 'canceled') status = 'expired';
+  if (['active', 'canceled', 'past_due'].includes(s.subscriptionStatus)) status = 'expired';
   else if (trialEnd) status = 'trial_expired';
   else status = 'none';
   return base(false, status, s, 0);

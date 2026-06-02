@@ -1202,4 +1202,42 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
     const h = { Authorization: `Bearer ${reg.body.token}` };
     expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(402); // still gated
   });
+
+  it('past_due keeps soft access (grace), then a cancel hard-locks the user', async () => {
+    const { app: sApp, repo, crypto } = await makeStripeApp();
+    const reg = await request(sApp).post('/api/auth/register').send({ email: 'stripe-dunning@example.com', password: 'secret123' });
+    const userId = reg.body.user.id;
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    repo.setSubscription(userId, { trialEndsAt: new Date(Date.now() - 1000).toISOString() }); // trial already over
+
+    const sendEvent = async (event) => {
+      const raw = JSON.stringify(event);
+      const ts = Math.floor(Date.now() / 1000);
+      const v1 = crypto.createHmac('sha256', WHSEC).update(`${ts}.${raw}`).digest('hex');
+      return request(sApp).post('/api/billing/webhook')
+        .set('Content-Type', 'application/json')
+        .set('Stripe-Signature', `t=${ts},v1=${v1}`)
+        .send(raw);
+    };
+
+    // A failed renewal: Stripe marks the subscription past_due (period just lapsed).
+    const lapsed = Math.floor((Date.now() - 86_400_000) / 1000); // 1 day ago → within grace
+    expect((await sendEvent({
+      id: 'evt_pd', type: 'customer.subscription.updated',
+      data: { object: { metadata: { userId }, status: 'past_due', current_period_end: lapsed, customer: 'cus_1' } },
+    })).status).toBe(200);
+
+    // Grace: still entitled, surfaced as past_due so the UI nudges for payment.
+    const grace = await request(sApp).get('/api/billing/status').set(h);
+    expect(grace.body.billing).toMatchObject({ entitled: true, status: 'past_due' });
+    expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(200);
+
+    // Dunning exhausted: Stripe cancels → hard paywall.
+    expect((await sendEvent({
+      id: 'evt_del', type: 'customer.subscription.deleted',
+      data: { object: { metadata: { userId }, status: 'canceled', customer: 'cus_1' } },
+    })).status).toBe(200);
+    expect(repo.getSubscription(userId).subscriptionStatus).toBe('canceled');
+    expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(402);
+  });
 });

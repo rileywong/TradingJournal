@@ -291,6 +291,9 @@ tbody tr:hover { background: var(--surface-2); }
 .trial-banner { display: flex; align-items: center; justify-content: center; gap: 14px; background: var(--accent-bg); color: var(--accent); padding: 9px 16px; font-size: 13px; font-weight: 600; border-bottom: 1px solid var(--border); }
 .trial-banner button { background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 5px 14px; font-weight: 700; font-size: 12px; cursor: pointer; }
 .trial-banner button:hover { background: #4f52d8; }
+.grace-banner { background: #fef3e2; color: #b45309; border-bottom-color: #f5d9b0; }
+.grace-banner button { background: #d97706; }
+.grace-banner button:hover { background: #b45309; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .auth-card .btn-primary { width: 100%; padding: 11px; margin-top: 4px; }

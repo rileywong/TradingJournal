@@ -308,3 +308,4 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 28. ✅ 7-day trial + paywall gating (provider-pluggable billing)
 29. ✅ Stripe billing provider (REST checkout + signed-webhook subscription sync)
 30. ✅ Stripe billing portal (self-serve manage/cancel for active subscribers)
+31. ✅ Dunning grace window (past_due keeps soft access + update-payment banner)
