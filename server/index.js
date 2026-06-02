@@ -29,7 +29,9 @@ import { projectBasis, normalizeBasis } from '../core/basis.js';
 export function createApp(repo = new Repository(), options = {}) {
   const app = express();
   app.use(cors());
-  app.use(express.json({ limit: '15mb' }));
+  // Capture the raw body so Stripe webhook signatures can be verified over the
+  // exact bytes (express.json() otherwise discards them after parsing).
+  app.use(express.json({ limit: '15mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
   // OAuth verifiers (idToken → verified identity), injected for testability.
   // A provider is "enabled" only when a verifier is configured.
@@ -174,6 +176,7 @@ export function createApp(repo = new Repository(), options = {}) {
     const session = await billing.createCheckout(req.userId, {
       email: (repo.getUser(req.userId) || {}).email,
       stripeCustomerId: sub.stripeCustomerId,
+      origin: req.headers.origin || process.env.APP_URL || '',
     });
     res.json(session);
   }));
@@ -188,15 +191,23 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // Stripe webhook (subscription lifecycle). The provider verifies the signature
-  // and maps the event to { userId, subscriptionStatus, currentPeriodEnd }.
-  app.post('/api/billing/webhook', wrapAsync(async (req, res) => {
+  // and maps the event to { userId, subscriptionStatus, currentPeriodEnd }. A
+  // bad signature is a 400 (Stripe will retry), not a 500.
+  app.post('/api/billing/webhook', async (req, res) => {
     if (!billing.handleWebhook) return res.status(404).json({ error: 'not found' });
-    const update = await billing.handleWebhook(req);
-    if (update && update.userId) {
-      repo.setSubscription(update.userId, update);
+    let update;
+    try {
+      update = await billing.handleWebhook(req);
+    } catch (err) {
+      return res.status(400).json({ error: `webhook error: ${err.message}` });
+    }
+    try {
+      if (update && update.userId) repo.setSubscription(update.userId, update);
+    } catch (err) {
+      console.error('failed to apply subscription update', err);
     }
     res.json({ received: true });
-  }));
+  });
 
   // --- accounts ----------------------------------------------------------
   app.get('/api/accounts', gate, wrap((req, res) => {
@@ -439,8 +450,20 @@ if (isMain) {
   if (googleClientId) oauth.google = googleVerifier({ clientId: googleClientId });
   if (appleClientId) oauth.apple = appleVerifier({ clientId: appleClientId });
 
-  createApp(repo, { oauth, googleClientId, appleClientId }).listen(PORT, () => {
+  // Use real Stripe billing when configured; otherwise the built-in dev provider.
+  let billing;
+  if (process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_ID) {
+    const { stripeBilling } = await import('../core/stripe-billing.js');
+    billing = stripeBilling({
+      secretKey: process.env.STRIPE_SECRET_KEY,
+      priceId: process.env.STRIPE_PRICE_ID,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+      appUrl: process.env.APP_URL || '',
+    });
+  }
+
+  createApp(repo, { oauth, googleClientId, appleClientId, billing }).listen(PORT, () => {
     const enabled = Object.keys(oauth).join(', ') || 'email/password only';
-    console.log(`TradeJournalSimplified API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled})`);
+    console.log(`TradeJournalSimplified API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'})`);
   });
 }

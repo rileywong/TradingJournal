@@ -1108,3 +1108,77 @@ describe('billing — trial + paywall gating', () => {
     expect(checkout.body.url).toBe('https://stripe/checkout');
   });
 });
+
+describe('billing — Stripe provider (checkout + signed webhook)', () => {
+  const WHSEC = 'whsec_itest';
+
+  // Build a Stripe provider with injected fetch (no network).
+  async function makeStripeApp() {
+    const crypto = (await import('node:crypto')).default;
+    const { stripeBilling } = await import('../core/stripe-billing.js');
+    const { Repository } = await import('../core/repository.js');
+    const periodEnd = Math.floor(Date.parse('2099-01-01T00:00:00Z') / 1000);
+    const fetchImpl = async (url) => {
+      if (url.includes('/checkout/sessions')) {
+        return { ok: true, json: async () => ({ id: 'cs_1', url: 'https://checkout.stripe.com/c/cs_1' }) };
+      }
+      if (url.includes('/subscriptions/')) {
+        return { ok: true, json: async () => ({ id: 'sub_1', current_period_end: periodEnd }) };
+      }
+      throw new Error(`unexpected stripe call: ${url}`);
+    };
+    const billing = stripeBilling({ secretKey: 'sk_test', priceId: 'price_1', webhookSecret: WHSEC, fetchImpl });
+    const repo = new Repository();
+    return { app: createApp(repo, { billing }), repo, crypto };
+  }
+
+  it('runs trial-expiry → 402 → checkout → signed webhook → active access', async () => {
+    const { app: sApp, repo, crypto } = await makeStripeApp();
+    const reg = await request(sApp).post('/api/auth/register').send({ email: 'stripe-e2e@example.com', password: 'secret123' });
+    const userId = reg.body.user.id;
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+
+    // Expire the trial → data is gated.
+    repo.setSubscription(userId, { trialEndsAt: new Date(Date.now() - 1000).toISOString() });
+    expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(402);
+
+    // Checkout returns the Stripe-hosted URL.
+    const checkout = await request(sApp).post('/api/billing/checkout').set(h);
+    expect(checkout.body.url).toBe('https://checkout.stripe.com/c/cs_1');
+
+    // Stripe posts a signed checkout.session.completed webhook → activates user.
+    const event = { id: 'evt_1', type: 'checkout.session.completed', data: { object: { client_reference_id: userId, customer: 'cus_1', subscription: 'sub_1' } } };
+    const raw = JSON.stringify(event);
+    const ts = Math.floor(Date.now() / 1000);
+    const v1 = crypto.createHmac('sha256', WHSEC).update(`${ts}.${raw}`).digest('hex');
+    const hook = await request(sApp)
+      .post('/api/billing/webhook')
+      .set('Content-Type', 'application/json')
+      .set('Stripe-Signature', `t=${ts},v1=${v1}`)
+      .send(raw);
+    expect(hook.status).toBe(200);
+
+    // Now entitled, data flows again.
+    const status = await request(sApp).get('/api/billing/status').set(h);
+    expect(status.body).toMatchObject({ mode: 'stripe' });
+    expect(status.body.billing).toMatchObject({ entitled: true, status: 'active' });
+    expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(200);
+  });
+
+  it('rejects a forged webhook with 400 and does not activate', async () => {
+    const { app: sApp, repo } = await makeStripeApp();
+    const reg = await request(sApp).post('/api/auth/register').send({ email: 'stripe-forge@example.com', password: 'secret123' });
+    repo.setSubscription(reg.body.user.id, { trialEndsAt: new Date(Date.now() - 1000).toISOString() });
+
+    const raw = JSON.stringify({ type: 'checkout.session.completed', data: { object: { client_reference_id: reg.body.user.id } } });
+    const forged = await request(sApp)
+      .post('/api/billing/webhook')
+      .set('Content-Type', 'application/json')
+      .set('Stripe-Signature', 't=1,v1=deadbeef')
+      .send(raw);
+    expect(forged.status).toBe(400);
+
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(402); // still gated
+  });
+});
