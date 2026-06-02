@@ -128,6 +128,22 @@ describe('stripeBilling.handleWebhook', () => {
     expect(update).toMatchObject({ userId: 'user-7', subscriptionStatus: 'canceled' });
   });
 
+  it('flags cancel_at_period_end on a portal cancellation (still active)', async () => {
+    const update = await provider(async () => ({})).handleWebhook(reqFor({
+      id: 'evt', type: 'customer.subscription.updated',
+      data: { object: { metadata: { userId: 'user-7' }, status: 'active', cancel_at_period_end: true, current_period_end: 4102444800, customer: 'cus_1' } },
+    }));
+    expect(update).toMatchObject({ userId: 'user-7', subscriptionStatus: 'active', cancelAtPeriodEnd: true });
+  });
+
+  it('clears cancel_at_period_end on a fresh checkout', async () => {
+    const update = await provider(async () => ({ ok: true, json: async () => ({}) })).handleWebhook(reqFor({
+      id: 'evt', type: 'checkout.session.completed',
+      data: { object: { client_reference_id: 'user-7', customer: 'cus_1' } },
+    }));
+    expect(update.cancelAtPeriodEnd).toBe(false);
+  });
+
   it('ignores unrelated events', async () => {
     const update = await provider(async () => ({})).handleWebhook(reqFor({ id: 'e', type: 'invoice.paid', data: { object: {} } }));
     expect(update).toBeNull();

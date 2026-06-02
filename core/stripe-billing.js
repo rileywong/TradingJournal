@@ -134,6 +134,7 @@ export function stripeBilling({
           subscriptionStatus: 'active',
           currentPeriodEnd,
           stripeCustomerId: obj.customer || null,
+          cancelAtPeriodEnd: false, // a fresh subscription isn't pending cancellation
         };
       }
 
@@ -145,6 +146,9 @@ export function stripeBilling({
           subscriptionStatus: status,
           currentPeriodEnd: toIso(obj.current_period_end),
           stripeCustomerId: obj.customer || null,
+          // Set when the user cancels via the portal: stays active until the
+          // period end, then Stripe fires subscription.deleted.
+          cancelAtPeriodEnd: !!obj.cancel_at_period_end,
         };
       }
 

@@ -145,3 +145,24 @@ describe('SqliteRepository — daily notes', () => {
     expect(repo.listNotedDays(u.id, a.id)).toEqual([]);
   });
 });
+
+describe('SqliteRepository — subscription persistence', () => {
+  it('round-trips subscription fields incl. cancelAtPeriodEnd, preserving unspecified ones', () => {
+    const u = repo.createUser('sub@b.com', 'secret123');
+    expect(repo.getSubscription(u.id)).toMatchObject({ subscriptionStatus: 'trialing', cancelAtPeriodEnd: false });
+
+    repo.setSubscription(u.id, { subscriptionStatus: 'active', currentPeriodEnd: '2099-01-01T00:00:00.000Z', stripeCustomerId: 'cus_1' });
+    repo.setSubscription(u.id, { cancelAtPeriodEnd: true }); // portal cancellation only touches this field
+    const sub = repo.getSubscription(u.id);
+    expect(sub).toMatchObject({
+      subscriptionStatus: 'active',
+      currentPeriodEnd: '2099-01-01T00:00:00.000Z',
+      stripeCustomerId: 'cus_1',
+      cancelAtPeriodEnd: true,
+    });
+
+    // Resuming clears the flag.
+    repo.setSubscription(u.id, { cancelAtPeriodEnd: false });
+    expect(repo.getSubscription(u.id).cancelAtPeriodEnd).toBe(false);
+  });
+});

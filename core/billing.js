@@ -70,6 +70,7 @@ function base(entitled, status, s, daysLeft) {
     status,
     trialEndsAt: s.trialEndsAt || null,
     currentPeriodEnd: s.currentPeriodEnd || null,
+    cancelAtPeriodEnd: !!s.cancelAtPeriodEnd,
     daysLeft,
   };
 }

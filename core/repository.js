@@ -131,17 +131,19 @@ export class Repository {
       trialEndsAt: user.trialEndsAt || null,
       currentPeriodEnd: user.currentPeriodEnd || null,
       stripeCustomerId: user.stripeCustomerId || null,
+      cancelAtPeriodEnd: !!user.cancelAtPeriodEnd,
     };
   }
 
   /** Update subscription fields (unspecified fields are preserved). */
-  setSubscription(userId, { subscriptionStatus, currentPeriodEnd, trialEndsAt, stripeCustomerId } = {}) {
+  setSubscription(userId, { subscriptionStatus, currentPeriodEnd, trialEndsAt, stripeCustomerId, cancelAtPeriodEnd } = {}) {
     const user = this.users.get(userId);
     if (!user) throw new RepoError('unauthorized', 401);
     if (subscriptionStatus !== undefined) user.subscriptionStatus = subscriptionStatus;
     if (currentPeriodEnd !== undefined) user.currentPeriodEnd = currentPeriodEnd;
     if (trialEndsAt !== undefined) user.trialEndsAt = trialEndsAt;
     if (stripeCustomerId !== undefined) user.stripeCustomerId = stripeCustomerId;
+    if (cancelAtPeriodEnd !== undefined) user.cancelAtPeriodEnd = !!cancelAtPeriodEnd;
     return this.getSubscription(userId);
   }
 

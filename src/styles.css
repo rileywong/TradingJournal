@@ -294,6 +294,9 @@ tbody tr:hover { background: var(--surface-2); }
 .grace-banner { background: #fef3e2; color: #b45309; border-bottom-color: #f5d9b0; }
 .grace-banner button { background: #d97706; }
 .grace-banner button:hover { background: #b45309; }
+.cancel-banner { background: #f1f5f9; color: #475569; border-bottom-color: #dbe2ea; }
+.cancel-banner button { background: #475569; }
+.cancel-banner button:hover { background: #334155; }
 .field { display: grid; gap: 6px; margin-bottom: 14px; }
 .field label { font-size: 12px; font-weight: 600; color: var(--muted); }
 .auth-card .btn-primary { width: 100%; padding: 11px; margin-top: 4px; }

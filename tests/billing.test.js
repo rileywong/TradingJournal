@@ -72,4 +72,15 @@ describe('computeEntitlement', () => {
       expect(e.status).toBe('active');
     });
   });
+
+  describe('cancel-at-period-end', () => {
+    it('stays entitled and surfaces the pending cancellation + period end', () => {
+      const e = computeEntitlement({ subscriptionStatus: 'active', currentPeriodEnd: days(20), cancelAtPeriodEnd: true }, NOW);
+      expect(e).toMatchObject({ entitled: true, status: 'active', cancelAtPeriodEnd: true, currentPeriodEnd: days(20) });
+    });
+
+    it('defaults cancelAtPeriodEnd to false', () => {
+      expect(computeEntitlement({ subscriptionStatus: 'active', currentPeriodEnd: days(20) }, NOW).cancelAtPeriodEnd).toBe(false);
+    });
+  });
 });

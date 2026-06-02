@@ -73,6 +73,7 @@ export class SqliteRepository {
     for (const [col, type] of [
       ['subscriptionStatus', 'TEXT'], ['trialEndsAt', 'TEXT'],
       ['currentPeriodEnd', 'TEXT'], ['stripeCustomerId', 'TEXT'],
+      ['cancelAtPeriodEnd', 'INTEGER'],
     ]) {
       if (!userCols.includes(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
     }
@@ -154,19 +155,21 @@ export class SqliteRepository {
       trialEndsAt: u.trialEndsAt || null,
       currentPeriodEnd: u.currentPeriodEnd || null,
       stripeCustomerId: u.stripeCustomerId || null,
+      cancelAtPeriodEnd: !!u.cancelAtPeriodEnd,
     };
   }
 
-  setSubscription(userId, { subscriptionStatus, currentPeriodEnd, trialEndsAt, stripeCustomerId } = {}) {
+  setSubscription(userId, { subscriptionStatus, currentPeriodEnd, trialEndsAt, stripeCustomerId, cancelAtPeriodEnd } = {}) {
     const cur = this.getSubscription(userId);
     const next = {
       subscriptionStatus: subscriptionStatus ?? cur.subscriptionStatus,
       currentPeriodEnd: currentPeriodEnd !== undefined ? currentPeriodEnd : cur.currentPeriodEnd,
       trialEndsAt: trialEndsAt !== undefined ? trialEndsAt : cur.trialEndsAt,
       stripeCustomerId: stripeCustomerId !== undefined ? stripeCustomerId : cur.stripeCustomerId,
+      cancelAtPeriodEnd: cancelAtPeriodEnd !== undefined ? !!cancelAtPeriodEnd : cur.cancelAtPeriodEnd,
     };
-    this.db.prepare('UPDATE users SET subscriptionStatus = ?, currentPeriodEnd = ?, trialEndsAt = ?, stripeCustomerId = ? WHERE id = ?')
-      .run(next.subscriptionStatus, next.currentPeriodEnd, next.trialEndsAt, next.stripeCustomerId, userId);
+    this.db.prepare('UPDATE users SET subscriptionStatus = ?, currentPeriodEnd = ?, trialEndsAt = ?, stripeCustomerId = ?, cancelAtPeriodEnd = ? WHERE id = ?')
+      .run(next.subscriptionStatus, next.currentPeriodEnd, next.trialEndsAt, next.stripeCustomerId, next.cancelAtPeriodEnd ? 1 : 0, userId);
     return next;
   }
 

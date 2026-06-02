@@ -1240,4 +1240,33 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
     expect(repo.getSubscription(userId).subscriptionStatus).toBe('canceled');
     expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(402);
   });
+
+  it('reflects a portal cancellation (active until period end) and a resume', async () => {
+    const { app: sApp, repo, crypto } = await makeStripeApp();
+    const reg = await request(sApp).post('/api/auth/register').send({ email: 'stripe-cancel@example.com', password: 'secret123' });
+    const userId = reg.body.user.id;
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    repo.setSubscription(userId, { subscriptionStatus: 'active', currentPeriodEnd: '2099-01-01T00:00:00.000Z', stripeCustomerId: 'cus_1' });
+
+    const sendEvent = async (object) => {
+      const raw = JSON.stringify({ id: 'evt', type: 'customer.subscription.updated', data: { object } });
+      const ts = Math.floor(Date.now() / 1000);
+      const v1 = crypto.createHmac('sha256', WHSEC).update(`${ts}.${raw}`).digest('hex');
+      return request(sApp).post('/api/billing/webhook')
+        .set('Content-Type', 'application/json').set('Stripe-Signature', `t=${ts},v1=${v1}`).send(raw);
+    };
+
+    // User cancels in the portal → still active, but flagged to end at period end.
+    const periodEnd = Math.floor(Date.parse('2099-01-01T00:00:00Z') / 1000);
+    await sendEvent({ metadata: { userId }, status: 'active', cancel_at_period_end: true, current_period_end: periodEnd, customer: 'cus_1' });
+    let status = (await request(sApp).get('/api/billing/status').set(h)).body;
+    expect(status.billing).toMatchObject({ entitled: true, status: 'active', cancelAtPeriodEnd: true });
+    expect(status.billing.currentPeriodEnd).toBe('2099-01-01T00:00:00.000Z');
+    expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(200); // full access retained
+
+    // User resumes before the period ends → flag clears.
+    await sendEvent({ metadata: { userId }, status: 'active', cancel_at_period_end: false, current_period_end: periodEnd, customer: 'cus_1' });
+    status = (await request(sApp).get('/api/billing/status').set(h)).body;
+    expect(status.billing.cancelAtPeriodEnd).toBe(false);
+  });
 });

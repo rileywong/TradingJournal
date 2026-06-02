@@ -326,6 +326,26 @@ export default function App() {
         </div>
       )}
 
+      {billing.status === 'active' && billing.cancelAtPeriodEnd && (
+        <div className="trial-banner cancel-banner">
+          <span>
+            Your subscription is set to cancel
+            {billing.currentPeriodEnd
+              ? ` on ${new Date(billing.currentPeriodEnd).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}`
+              : ' at the end of the period'}
+            . You'll keep full access until then.
+          </span>
+          <button onClick={async () => {
+            try {
+              const { url } = await api.openBillingPortal();
+              if (url) window.location.href = url;
+            } catch { /* no portal available */ }
+          }}>
+            Resume subscription
+          </button>
+        </div>
+      )}
+
       <div className="container">
         {!scopeReady ? (
           <div className="empty-state">Create an account to begin tracking trades.</div>
