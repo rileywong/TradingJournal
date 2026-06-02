@@ -176,7 +176,9 @@ export function createApp(repo = new Repository(), options = {}) {
     const session = await billing.createCheckout(req.userId, {
       email: (repo.getUser(req.userId) || {}).email,
       stripeCustomerId: sub.stripeCustomerId,
-      origin: req.headers.origin || process.env.APP_URL || '',
+      // Prefer the server-configured app URL over the client-supplied Origin
+      // header so redirect targets aren't attacker-influenced.
+      origin: process.env.APP_URL || req.headers.origin || '',
     });
     res.json(session);
   }));
@@ -190,7 +192,7 @@ export function createApp(repo = new Repository(), options = {}) {
     if (!sub.stripeCustomerId) return res.status(404).json({ error: 'no subscription to manage' });
     const session = await billing.createPortal(req.userId, {
       stripeCustomerId: sub.stripeCustomerId,
-      origin: req.headers.origin || process.env.APP_URL || '',
+      origin: process.env.APP_URL || req.headers.origin || '',
     });
     res.json(session);
   }));
@@ -474,6 +476,9 @@ if (isMain) {
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
       appUrl: process.env.APP_URL || '',
     });
+    if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      console.warn('⚠  STRIPE_WEBHOOK_SECRET is not set — webhook signature checks will reject every event, so subscriptions will never activate. Set it to the signing secret of your Stripe webhook endpoint.');
+    }
   }
 
   createApp(repo, { oauth, googleClientId, appleClientId, billing }).listen(PORT, () => {

@@ -309,3 +309,21 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 29. ✅ Stripe billing provider (REST checkout + signed-webhook subscription sync)
 30. ✅ Stripe billing portal (self-serve manage/cancel for active subscribers)
 31. ✅ Dunning grace window (past_due keeps soft access + update-payment banner)
+
+### Billing security notes
+
+- **Webhook trust**: subscription state is only mutated from Stripe webhooks
+  whose `Stripe-Signature` HMAC verifies against `STRIPE_WEBHOOK_SECRET` (with a
+  300s timestamp tolerance). The `userId` applied comes from the signed payload
+  (`client_reference_id` / `subscription.metadata.userId`), never from the
+  client. A bad signature returns `400`.
+- **Redirect targets**: checkout/portal `success`/`cancel`/`return` URLs prefer
+  the server-configured `APP_URL` over the client `Origin` header, so they
+  aren't attacker-influenced.
+- **Error leakage**: Stripe API/SDK error text is logged server-side only;
+  clients receive a generic `500` (only our own `RepoError` messages surface).
+- **Known limitation — replay/idempotency**: events are not yet de-duplicated by
+  event id, so a webhook replayed within the 300s tolerance (or a Stripe retry)
+  is re-applied. Re-applying a subscription snapshot is idempotent, so impact is
+  low; persistent event-id dedup is a future hardening if stricter guarantees
+  are needed.
