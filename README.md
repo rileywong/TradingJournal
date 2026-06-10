@@ -81,7 +81,8 @@ institutional-grade performance metrics on a professional dashboard.
 - **Persistence**: **SQLite** (`node:sqlite`, zero native deps) by default —
   data survives restarts; set `DB_PATH` (or `:memory:` for ephemeral). Tests use
   an in-memory repository behind the identical interface, so the same logic runs
-  on either store (swap to Postgres without touching app code).
+  on either store. (A Postgres adapter would need an async-readiness pass first —
+  the repo interface is currently synchronous; see DESIGN_DOC.)
 
 ## Getting started
 
@@ -117,7 +118,7 @@ existing `dist/` build.)
 npm test
 ```
 
-285 tests across the CSV tokenizer, tolerant date parser, broker detection,
+287 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics

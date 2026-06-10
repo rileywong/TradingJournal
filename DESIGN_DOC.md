@@ -13,7 +13,7 @@ Theme** dashboard inspired by TradeZella.
 | ---------------- | ---------------------------------------- | ------------------------------------------------------------------- |
 | Shared Core      | Pure ES Modules (no framework)           | Parser / matcher / metrics are environment-agnostic & 100% testable |
 | Backend          | Node.js + Express (ESM)                  | Tiny, fast, zero-build API surface                                  |
-| Persistence      | In-memory **Repository** adapter         | Mirrors SQL relations now; swap to Postgres later w/o touching logic |
+| Persistence      | **SQLite** (`node:sqlite`) + in-memory adapter | Mirrors SQL relations; business logic is store-agnostic. Postgres needs an async-readiness pass first (see roadmap) |
 | Auth             | HMAC-signed token (JWT-shaped) stub      | Structurally identical to JWT for painless migration                |
 | Frontend         | React 18 + Vite                          | Fast HMR, minimal config, light-mode optimized                      |
 | Styling          | Hand-rolled CSS design tokens            | Full control over the light palette, zero CSS framework weight      |
@@ -21,8 +21,9 @@ Theme** dashboard inspired by TradeZella.
 
 > The persistence layer hides behind a `Repository` interface. The in-memory
 > implementation enforces the same **user-isolation (RLS)** invariants a real
-> Postgres `row level security` policy would, so swapping the adapter is a
-> drop-in change.
+> Postgres `row level security` policy would. Swapping to another *synchronous*
+> store (like SQLite) is drop-in; an *async* store (Postgres) needs the
+> async-readiness pass noted in the persistence roadmap.
 
 ---
 
@@ -310,6 +311,7 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 30. ✅ Stripe billing portal (self-serve manage/cancel for active subscribers)
 31. ✅ Dunning grace window (past_due keeps soft access + update-payment banner)
 32. ✅ Cancel-at-period-end notice (active-until-end banner with date + resume)
+33. ✅ Webhook event idempotency (dedupe Stripe retries/replays by event id)
 
 ### Billing security notes
 
@@ -323,8 +325,20 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
   aren't attacker-influenced.
 - **Error leakage**: Stripe API/SDK error text is logged server-side only;
   clients receive a generic `500` (only our own `RepoError` messages surface).
-- **Known limitation — replay/idempotency**: events are not yet de-duplicated by
-  event id, so a webhook replayed within the 300s tolerance (or a Stripe retry)
-  is re-applied. Re-applying a subscription snapshot is idempotent, so impact is
-  low; persistent event-id dedup is a future hardening if stricter guarantees
-  are needed.
+- **Replay/idempotency**: each billing webhook is applied at most once. Both
+  repo adapters record processed event ids (`webhook_events` in SQLite, durable
+  across restarts; a `Set` in-memory); the route skips an already-applied id and
+  records it only after the subscription update succeeds. This neutralizes Stripe
+  retries and out-of-order/late re-deliveries.
+
+### Persistence roadmap — why not Postgres (yet)
+
+The `Repository` interface is **synchronous** (`node:sqlite` and the in-memory
+store are both sync; the server calls the repo without `await`). A real
+Postgres adapter via `pg` is **async**, so it is *not* a drop-in: it would
+require making every repo method async and awaiting it across all endpoints and
+tests. Combined with the lack of a Postgres target to verify against in CI, this
+was a deliberate **deferral** — the synchronous SQLite stack (restart-durable,
+fully tested) is the supported store. When Postgres is warranted, the enabling
+step is an async-readiness refactor (await all repo calls) so any async adapter
+drops in cleanly.
