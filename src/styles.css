@@ -496,3 +496,12 @@ tbody tr:hover { background: var(--surface-2); }
   .landing-hero-copy h1 { font-size: 34px; }
   .landing-feature-grid, .landing-why-grid { grid-template-columns: 1fr; }
 }
+
+/* --- Demo mode --- */
+.demo-banner { background: #ecfdf5; color: #047857; border-bottom-color: #c2efdc; }
+.demo-banner button { background: #059669; }
+.demo-banner button:hover { background: #047857; }
+.landing-cta.demo-cta { background: var(--surface); color: var(--accent); border: 1px solid #c7c9f5; }
+.landing-cta.demo-cta:hover { background: var(--accent-bg); }
+.landing-textlink { background: none; border: none; color: var(--accent); font-weight: 700; font-size: inherit; padding: 0; cursor: pointer; }
+.landing-textlink:hover { text-decoration: underline; }

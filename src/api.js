@@ -58,6 +58,7 @@ export const api = {
     request('/auth/google', { method: 'POST', body: { idToken }, auth: false }),
   appleLogin: (idToken) =>
     request('/auth/apple', { method: 'POST', body: { idToken }, auth: false }),
+  startDemo: () => request('/demo', { method: 'POST', auth: false }),
   billingStatus: () => request('/billing/status'),
   startCheckout: () => request('/billing/checkout', { method: 'POST' }),
   mockCompleteCheckout: () => request('/billing/mock-complete', { method: 'POST' }),

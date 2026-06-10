@@ -1385,3 +1385,57 @@ describe('paywall toggle (open-access launch mode)', () => {
     expect((await request(gatedApp).get('/api/billing/status').set(h)).body.enforced).toBe(true);
   });
 });
+
+describe('public demo mode', () => {
+  it('seeds a read-only demo session with a populated dashboard', async () => {
+    const res = await request(app).post('/api/demo');
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeTruthy();
+    expect(res.body.user.demo).toBe(true);
+    const h = { Authorization: `Bearer ${res.body.token}` };
+
+    const accounts = (await request(app).get('/api/accounts').set(h)).body.accounts;
+    expect(accounts).toHaveLength(1);
+    const acctId = accounts[0].id;
+
+    // Real computed analytics flow through (not faked numbers).
+    const m = (await request(app).get(`/api/metrics?accountId=${acctId}`).set(h)).body.metrics;
+    expect(m.totalTrades).toBeGreaterThan(20);
+    const s = (await request(app).get(`/api/statistics?accountId=${acctId}`).set(h)).body.statistics;
+    expect(s.daily.tradingDays).toBeGreaterThan(5);
+  });
+
+  it('rejects writes from a demo token (403, data stays pristine)', async () => {
+    const reg = await request(app).post('/api/demo');
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    const acctId = (await request(app).get('/api/accounts').set(h)).body.accounts[0].id;
+
+    expect((await request(app).post('/api/accounts').set(h).send({ name: 'X', startingBalance: 1000 })).status).toBe(403);
+    expect((await request(app).post('/api/import').set(h).send({ accountId: acctId, csv: TOS_CSV })).status).toBe(403);
+    // A trade patch is also blocked.
+    const trades = (await request(app).get(`/api/trades?accountId=${acctId}`).set(h)).body.trades;
+    expect((await request(app).patch(`/api/trades/${trades[0].id}`).set(h).send({ setup: 'x' })).status).toBe(403);
+  });
+
+  it('is reused (idempotent) across visitors — one shared demo account', async () => {
+    const a = await request(app).post('/api/demo');
+    const b = await request(app).post('/api/demo');
+    expect(a.body.user.id).toBe(b.body.user.id);
+    const h = { Authorization: `Bearer ${b.body.token}` };
+    expect((await request(app).get('/api/accounts').set(h)).body.accounts).toHaveLength(1);
+  });
+
+  it('bypasses the paywall even when enforced and past trial', async () => {
+    const { Repository } = await import('../core/repository.js');
+    const repo = new Repository();
+    const gatedApp = createApp(repo, {}); // paywall enforced by default
+
+    const demo = await request(gatedApp).post('/api/demo');
+    const userId = demo.body.user.id;
+    const h = { Authorization: `Bearer ${demo.body.token}` };
+    repo.setSubscription(userId, { trialEndsAt: new Date(Date.now() - 1000).toISOString() }); // expire trial
+
+    const acctId = (await request(gatedApp).get('/api/accounts').set(h)).body.accounts[0].id;
+    expect((await request(gatedApp).get(`/api/metrics?accountId=${acctId}`).set(h)).status).toBe(200);
+  });
+});

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api, getStoredUser, clearSession } from './api.js';
+import { api, getStoredUser, clearSession, setSession } from './api.js';
 import { PERIODS, periodRange } from '../core/period.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
@@ -67,7 +67,7 @@ export default function App() {
   // Load accounts once entitled (data routes 402 when the trial has lapsed).
   // With the paywall disabled, entitlement is irrelevant — everyone loads.
   useEffect(() => {
-    if (!user || !billing || (billingEnforced && !billing.entitled)) return;
+    if (!user || !billing || (billingEnforced && !user.demo && !billing.entitled)) return;
     api.listAccounts().then(({ accounts }) => {
       setAccounts(accounts);
       if (accounts.length > 0) setActiveId((id) => id || accounts[0].id);
@@ -122,6 +122,20 @@ export default function App() {
     setTradeFilter(EMPTY_FILTER);
   }, [activeId]);
 
+  // Start a no-signup demo: grab a demo token and drop straight into the app.
+  const startDemo = async () => {
+    const { token, user: demoUser } = await api.startDemo();
+    setSession(token, demoUser);
+    setUser(demoUser);
+  };
+
+  // Leave the demo and go to the sign-up form.
+  const exitDemoToSignup = () => {
+    clearSession();
+    setUser(null);
+    setAuthView('register');
+  };
+
   const logout = () => {
     clearSession();
     setUser(null);
@@ -141,6 +155,7 @@ export default function App() {
     setDayDetail(null);
     setTradeFilter(EMPTY_FILTER);
     setBilling(null);
+    setAuthView(null);
   };
 
   // Apply an updated trade to both the main log and any open day drill-down.
@@ -245,6 +260,7 @@ export default function App() {
         <Landing
           onGetStarted={() => setAuthView('register')}
           onSignIn={() => setAuthView('login')}
+          onDemo={startDemo}
         />
       );
     }
@@ -254,7 +270,7 @@ export default function App() {
   // Gate the whole app on entitlement. While billing is loading, render nothing
   // (avoids a flash of the dashboard before a possible paywall).
   if (billing === null) return <div className="app-loading" />;
-  if (billingEnforced && !billing.entitled) {
+  if (billingEnforced && !user.demo && !billing.entitled) {
     return (
       <Paywall
         billing={billing}
@@ -285,7 +301,7 @@ export default function App() {
               ))}
             </select>
           )}
-          {activeAccount && (
+          {activeAccount && !user.demo && (
             <button
               className="btn-ghost"
               onClick={() => setEditAccount(activeAccount)}
@@ -295,8 +311,10 @@ export default function App() {
               ⚙
             </button>
           )}
-          <button className="btn-ghost" onClick={() => setShowNewAccount(true)}>+ Account</button>
-          {billingMode === 'stripe' && billing.status === 'active' && (
+          {!user.demo && (
+            <button className="btn-ghost" onClick={() => setShowNewAccount(true)}>+ Account</button>
+          )}
+          {!user.demo && billingMode === 'stripe' && billing.status === 'active' && (
             <button
               className="btn-ghost"
               title="Manage subscription"
@@ -310,12 +328,19 @@ export default function App() {
               Manage subscription
             </button>
           )}
-          <span className="muted">{user.email}</span>
-          <button className="btn-ghost" onClick={logout}>Sign out</button>
+          <span className="muted">{user.demo ? 'Demo mode' : user.email}</span>
+          <button className="btn-ghost" onClick={logout}>{user.demo ? 'Exit demo' : 'Sign out'}</button>
         </div>
       </div>
 
-      {billingEnforced && billing.status === 'trialing' && (
+      {user.demo && (
+        <div className="trial-banner demo-banner">
+          <span>You're exploring demo data. Sign up to import your own trades and track your edge.</span>
+          <button onClick={exitDemoToSignup}>Sign up free</button>
+        </div>
+      )}
+
+      {billingEnforced && !user.demo && billing.status === 'trialing' && (
         <div className="trial-banner">
           <span>
             {billing.daysLeft} day{billing.daysLeft !== 1 ? 's' : ''} left in your free trial.
@@ -330,7 +355,7 @@ export default function App() {
         </div>
       )}
 
-      {billingEnforced && billing.status === 'past_due' && (
+      {billingEnforced && !user.demo && billing.status === 'past_due' && (
         <div className="trial-banner grace-banner">
           <span>
             Your last payment failed. Update your payment method to keep your subscription
@@ -347,7 +372,7 @@ export default function App() {
         </div>
       )}
 
-      {billingEnforced && billing.status === 'active' && billing.cancelAtPeriodEnd && (
+      {billingEnforced && !user.demo && billing.status === 'active' && billing.cancelAtPeriodEnd && (
         <div className="trial-banner cancel-banner">
           <span>
             Your subscription is set to cancel
@@ -431,24 +456,26 @@ export default function App() {
                     onSelectDay={isAll ? undefined : openDay}
                     selectedDate={selectedDate}
                   />
-                  <div className="card" style={{ padding: 18 }}>
-                    <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
-                    {isAll ? (
-                      <div className="empty-state" style={{ padding: '18px 8px' }}>
-                        Select a specific account to import. You're viewing the combined
-                        roll-up of all accounts.
-                      </div>
-                    ) : (
-                      <ImportPanel
-                        accountId={activeId}
-                        onImported={() => {
-                          refreshDashboard(activeId, cursor, periodRange(period), basis);
-                          loadYear(activeId, yearCursor, basis);
-                          if (selectedDate) openDay(selectedDate);
-                        }}
-                      />
-                    )}
-                  </div>
+                  {!user.demo && (
+                    <div className="card" style={{ padding: 18 }}>
+                      <h3 style={{ margin: '0 0 14px', fontSize: 16 }}>Import Trades</h3>
+                      {isAll ? (
+                        <div className="empty-state" style={{ padding: '18px 8px' }}>
+                          Select a specific account to import. You're viewing the combined
+                          roll-up of all accounts.
+                        </div>
+                      ) : (
+                        <ImportPanel
+                          accountId={activeId}
+                          onImported={() => {
+                            refreshDashboard(activeId, cursor, periodRange(period), basis);
+                            loadYear(activeId, yearCursor, basis);
+                            if (selectedDate) openDay(selectedDate);
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="section-title">Trade Log</div>

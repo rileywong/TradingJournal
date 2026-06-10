@@ -21,6 +21,7 @@ import {
 } from '../core/day.js';
 import { buildAnalytics } from '../core/analytics.js';
 import { buildStatistics } from '../core/statistics.js';
+import { demoCsv } from '../core/demo-data.js';
 import { buildPlaybook, listSetups } from '../core/playbook.js';
 import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
@@ -62,6 +63,14 @@ export function createApp(repo = new Repository(), options = {}) {
       return res.status(401).json({ error: 'unauthorized' });
     }
     req.userId = payload.sub;
+    req.isDemo = payload.demo === true;
+    next();
+  }
+
+  // The public demo is read-only: reject mutations made with a demo token so the
+  // shared sample data stays pristine. Reads (GET) flow through normally.
+  function blockDemoWrites(req, res, next) {
+    if (req.isDemo) return res.status(403).json({ error: 'demo is read-only — sign up to make changes', code: 'demo_readonly' });
     next();
   }
 
@@ -94,7 +103,7 @@ export function createApp(repo = new Repository(), options = {}) {
   // live trial. Returns 402 with the billing state so the client shows the
   // paywall. Applied to data routes (not to /api/me or /api/billing/*).
   const requireEntitlement = (req, res, next) => {
-    if (!billingEnforced) return next(); // paywall disabled → unrestricted access
+    if (!billingEnforced || req.isDemo) return next(); // paywall off / demo → unrestricted
     const ent = computeEntitlement(repo.getSubscription(req.userId));
     if (!ent.entitled) {
       return res.status(402).json({ error: 'subscription required', code: 'subscription_required', billing: ent });
@@ -102,6 +111,7 @@ export function createApp(repo = new Repository(), options = {}) {
     next();
   };
   const gate = [auth, requireEntitlement];
+  const writeGate = [auth, requireEntitlement, blockDemoWrites]; // mutating routes
 
   // Resolve a read scope: a single account (RLS-gated) or the special 'all'
   // pseudo-account that aggregates every account the user owns. Returns the
@@ -131,6 +141,32 @@ export function createApp(repo = new Repository(), options = {}) {
     const user = repo.authenticate(email, password);
     const token = signToken({ sub: user.id, email: user.email });
     res.json({ token, user });
+  }));
+
+  // Idempotently ensure a read-only demo user seeded with realistic sample
+  // trades (via the same parse→match→store path as a real import). Reused across
+  // visitors; only seeds the first time (when the demo account has no data).
+  function ensureDemoUser() {
+    const user = repo.upsertOAuthUser({
+      provider: 'demo', sub: 'demo', email: 'demo@tradejournal.app', emailVerified: true,
+    });
+    if (repo.listAccounts(user.id).length === 0) {
+      const account = repo.createAccount(user.id, { name: 'Demo — ThinkOrSwim', startingBalance: 25000 });
+      const { executions, trades } = (() => {
+        const { executions: ex } = parseExecutions(demoCsv(), {});
+        const { trades: tr } = matchTrades(ex, { accountId: account.id, commissionPerTrade: 0 });
+        return { executions: ex, trades: tr };
+      })();
+      repo.saveImport(user.id, account.id, executions, trades);
+    }
+    return user;
+  }
+
+  // Start a no-signup demo session: returns a token for the shared demo user.
+  app.post('/api/demo', wrap((_req, res) => {
+    const user = ensureDemoUser();
+    const token = signToken({ sub: user.id, email: user.email, demo: true });
+    res.json({ token, user: { ...user, demo: true } });
   }));
 
   // Which third-party sign-in providers are configured (for the login screen).
@@ -249,7 +285,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ accounts: repo.listAccounts(req.userId) });
   }));
 
-  app.post('/api/accounts', gate, wrap((req, res) => {
+  app.post('/api/accounts', writeGate, wrap((req, res) => {
     const { name, startingBalance, commissionPerTrade } = req.body || {};
     const account = repo.createAccount(req.userId, {
       name,
@@ -259,30 +295,30 @@ export function createApp(repo = new Repository(), options = {}) {
     res.status(201).json({ account });
   }));
 
-  app.patch('/api/accounts/:id', gate, wrap((req, res) => {
+  app.patch('/api/accounts/:id', writeGate, wrap((req, res) => {
     const account = repo.updateAccount(req.userId, req.params.id, req.body || {});
     res.json({ account });
   }));
 
-  app.delete('/api/accounts/:id', gate, wrap((req, res) => {
+  app.delete('/api/accounts/:id', writeGate, wrap((req, res) => {
     repo.deleteAccount(req.userId, req.params.id);
     res.json({ ok: true });
   }));
 
   // Tag management across an account's trades.
-  app.post('/api/accounts/:id/tags/rename', gate, wrap((req, res) => {
+  app.post('/api/accounts/:id/tags/rename', writeGate, wrap((req, res) => {
     const { from, to } = req.body || {};
     res.json({ result: repo.renameTag(req.userId, req.params.id, from, to) });
   }));
 
-  app.post('/api/accounts/:id/tags/delete', gate, wrap((req, res) => {
+  app.post('/api/accounts/:id/tags/delete', writeGate, wrap((req, res) => {
     const { tag } = req.body || {};
     res.json({ result: repo.removeTag(req.userId, req.params.id, tag) });
   }));
 
   // --- import ------------------------------------------------------------
   // Inspect an unrecognized CSV so the UI can offer manual column mapping.
-  app.post('/api/import/preview', gate, wrap((req, res) => {
+  app.post('/api/import/preview', writeGate, wrap((req, res) => {
     const { csv } = req.body || {};
     if (typeof csv !== 'string' || csv.trim() === '') {
       return res.status(400).json({ error: 'csv content required' });
@@ -290,7 +326,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json(inspectCsv(csv));
   }));
 
-  app.post('/api/import', gate, wrap((req, res) => {
+  app.post('/api/import', writeGate, wrap((req, res) => {
     const { accountId, csv, broker, mapping } = req.body || {};
     const mode = req.body && req.body.mode === 'append' ? 'append' : 'replace';
     if (!accountId) return res.status(400).json({ error: 'accountId required' });
@@ -345,7 +381,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ trades: filterTrades(trades, { symbol, side, tag, setup, outcome, from, to }) });
   }));
 
-  app.patch('/api/trades/:id', gate, wrap((req, res) => {
+  app.patch('/api/trades/:id', writeGate, wrap((req, res) => {
     const { tags, riskAmount, note, setup } = req.body || {};
     let trade;
     if (tags !== undefined) trade = repo.updateTradeTags(req.userId, req.params.id, tags);
@@ -413,7 +449,7 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // Upsert the journal note for a day (empty body clears it).
-  app.put('/api/day/note', gate, wrap((req, res) => {
+  app.put('/api/day/note', writeGate, wrap((req, res) => {
     const { accountId, date, note } = req.body || {};
     if (!isValidDateKey(date)) {
       return res.status(400).json({ error: 'date must be YYYY-MM-DD' });

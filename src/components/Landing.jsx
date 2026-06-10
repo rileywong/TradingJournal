@@ -20,7 +20,13 @@ const STATS = [
   { k: 'Trade Score', v: '78 · B', tone: 'accent' },
 ];
 
-export default function Landing({ onGetStarted, onSignIn }) {
+export default function Landing({ onGetStarted, onSignIn, onDemo }) {
+  const [demoBusy, setDemoBusy] = React.useState(false);
+  const viewDemo = async () => {
+    if (!onDemo) return;
+    setDemoBusy(true);
+    try { await onDemo(); } catch { setDemoBusy(false); }
+  };
   return (
     <div className="landing">
       <header className="landing-nav">
@@ -45,9 +51,16 @@ export default function Landing({ onGetStarted, onSignIn }) {
           </p>
           <div className="landing-cta-row">
             <button className="btn-primary landing-cta" onClick={onGetStarted}>Start free</button>
-            <button className="btn-ghost landing-cta" onClick={onSignIn}>I already have an account</button>
+            {onDemo && (
+              <button className="btn-ghost landing-cta demo-cta" onClick={viewDemo} disabled={demoBusy}>
+                {demoBusy ? 'Loading demo…' : 'View live demo'}
+              </button>
+            )}
           </div>
-          <p className="landing-fineprint">Free to start · no credit card required</p>
+          <p className="landing-fineprint">
+            Free to start · no credit card required ·{' '}
+            <button type="button" className="landing-textlink" onClick={onSignIn}>sign in</button>
+          </p>
         </div>
 
         <div className="landing-hero-card" aria-hidden="true">
