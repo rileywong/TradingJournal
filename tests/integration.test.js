@@ -1248,8 +1248,8 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
     const h = { Authorization: `Bearer ${reg.body.token}` };
     repo.setSubscription(userId, { subscriptionStatus: 'active', currentPeriodEnd: '2099-01-01T00:00:00.000Z', stripeCustomerId: 'cus_1' });
 
-    const sendEvent = async (object) => {
-      const raw = JSON.stringify({ id: 'evt', type: 'customer.subscription.updated', data: { object } });
+    const sendEvent = async (id, object) => {
+      const raw = JSON.stringify({ id, type: 'customer.subscription.updated', data: { object } });
       const ts = Math.floor(Date.now() / 1000);
       const v1 = crypto.createHmac('sha256', WHSEC).update(`${ts}.${raw}`).digest('hex');
       return request(sApp).post('/api/billing/webhook')
@@ -1258,15 +1258,47 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
 
     // User cancels in the portal → still active, but flagged to end at period end.
     const periodEnd = Math.floor(Date.parse('2099-01-01T00:00:00Z') / 1000);
-    await sendEvent({ metadata: { userId }, status: 'active', cancel_at_period_end: true, current_period_end: periodEnd, customer: 'cus_1' });
+    await sendEvent('evt_cancel', { metadata: { userId }, status: 'active', cancel_at_period_end: true, current_period_end: periodEnd, customer: 'cus_1' });
     let status = (await request(sApp).get('/api/billing/status').set(h)).body;
     expect(status.billing).toMatchObject({ entitled: true, status: 'active', cancelAtPeriodEnd: true });
     expect(status.billing.currentPeriodEnd).toBe('2099-01-01T00:00:00.000Z');
     expect((await request(sApp).get('/api/accounts').set(h)).status).toBe(200); // full access retained
 
     // User resumes before the period ends → flag clears.
-    await sendEvent({ metadata: { userId }, status: 'active', cancel_at_period_end: false, current_period_end: periodEnd, customer: 'cus_1' });
+    await sendEvent('evt_resume', { metadata: { userId }, status: 'active', cancel_at_period_end: false, current_period_end: periodEnd, customer: 'cus_1' });
     status = (await request(sApp).get('/api/billing/status').set(h)).body;
     expect(status.billing.cancelAtPeriodEnd).toBe(false);
+  });
+
+  it('applies each webhook event id once (idempotent against replay/out-of-order)', async () => {
+    const { app: sApp, repo, crypto } = await makeStripeApp();
+    const reg = await request(sApp).post('/api/auth/register').send({ email: 'stripe-idem@example.com', password: 'secret123' });
+    const userId = reg.body.user.id;
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+    repo.setSubscription(userId, { subscriptionStatus: 'active', currentPeriodEnd: '2099-01-01T00:00:00.000Z', stripeCustomerId: 'cus_1' });
+    const periodEnd = Math.floor(Date.parse('2099-01-01T00:00:00Z') / 1000);
+
+    const send = (id, object) => {
+      const raw = JSON.stringify({ id, type: 'customer.subscription.updated', data: { object } });
+      const ts = Math.floor(Date.now() / 1000);
+      const v1 = crypto.createHmac('sha256', WHSEC).update(`${ts}.${raw}`).digest('hex');
+      return request(sApp).post('/api/billing/webhook')
+        .set('Content-Type', 'application/json').set('Stripe-Signature', `t=${ts},v1=${v1}`).send(raw);
+    };
+    const cancelFlag = () => request(sApp).get('/api/billing/status').set(h).then((r) => r.body.billing.cancelAtPeriodEnd);
+
+    // evt_A: cancel scheduled.
+    expect((await send('evt_A', { metadata: { userId }, status: 'active', cancel_at_period_end: true, current_period_end: periodEnd, customer: 'cus_1' })).body)
+      .toMatchObject({ received: true });
+    expect(await cancelFlag()).toBe(true);
+
+    // evt_B (newer): resumed.
+    await send('evt_B', { metadata: { userId }, status: 'active', cancel_at_period_end: false, current_period_end: periodEnd, customer: 'cus_1' });
+    expect(await cancelFlag()).toBe(false);
+
+    // A late re-delivery of evt_A must NOT revert the resume — it's a duplicate.
+    const replay = await send('evt_A', { metadata: { userId }, status: 'active', cancel_at_period_end: true, current_period_end: periodEnd, customer: 'cus_1' });
+    expect(replay.body).toMatchObject({ duplicate: true });
+    expect(await cancelFlag()).toBe(false);
   });
 });

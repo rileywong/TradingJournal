@@ -218,7 +218,15 @@ export function createApp(repo = new Repository(), options = {}) {
       return res.status(400).json({ error: `webhook error: ${err.message}` });
     }
     try {
-      if (update && update.userId) repo.setSubscription(update.userId, update);
+      if (update && update.userId) {
+        // Idempotency: Stripe may deliver an event more than once (retries) or
+        // out of order. Skip an event id we've already applied.
+        if (update.eventId && repo.hasWebhookEvent && repo.hasWebhookEvent(update.eventId)) {
+          return res.json({ received: true, duplicate: true });
+        }
+        repo.setSubscription(update.userId, update);
+        if (update.eventId && repo.recordWebhookEvent) repo.recordWebhookEvent(update.eventId);
+      }
     } catch (err) {
       console.error('failed to apply subscription update', err);
     }

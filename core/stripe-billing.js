@@ -130,6 +130,7 @@ export function stripeBilling({
           }
         }
         return {
+          eventId: event.id,
           userId: obj.client_reference_id,
           subscriptionStatus: 'active',
           currentPeriodEnd,
@@ -142,6 +143,7 @@ export function stripeBilling({
         const userId = obj.metadata && obj.metadata.userId;
         const status = event.type.endsWith('deleted') ? 'canceled' : mapStatus(obj.status);
         return {
+          eventId: event.id,
           userId,
           subscriptionStatus: status,
           currentPeriodEnd: toIso(obj.current_period_end),

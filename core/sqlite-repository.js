@@ -62,6 +62,9 @@ export class SqliteRepository {
         accountId TEXT NOT NULL, signature TEXT NOT NULL,
         tags TEXT, risk REAL, note TEXT, setup TEXT, PRIMARY KEY (accountId, signature)
       );
+      CREATE TABLE IF NOT EXISTS webhook_events (
+        id TEXT PRIMARY KEY, processedAt TEXT NOT NULL
+      );
     `);
     // Additive migration: ensure `setup` exists on databases created before it.
     const attrCols = this.db.prepare('PRAGMA table_info(trade_attrs)').all().map((c) => c.name);
@@ -171,6 +174,18 @@ export class SqliteRepository {
     this.db.prepare('UPDATE users SET subscriptionStatus = ?, currentPeriodEnd = ?, trialEndsAt = ?, stripeCustomerId = ?, cancelAtPeriodEnd = ? WHERE id = ?')
       .run(next.subscriptionStatus, next.currentPeriodEnd, next.trialEndsAt, next.stripeCustomerId, next.cancelAtPeriodEnd ? 1 : 0, userId);
     return next;
+  }
+
+  /** Has this billing webhook event id already been applied? (idempotency) */
+  hasWebhookEvent(eventId) {
+    return !!this.db.prepare('SELECT 1 FROM webhook_events WHERE id = ?').get(eventId);
+  }
+
+  /** Record a billing webhook event id as applied (no-op if already present). */
+  recordWebhookEvent(eventId) {
+    if (!eventId) return;
+    this.db.prepare('INSERT OR IGNORE INTO webhook_events (id, processedAt) VALUES (?, ?)')
+      .run(eventId, new Date().toISOString());
   }
 
   // --- accounts ----------------------------------------------------------

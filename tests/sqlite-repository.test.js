@@ -165,4 +165,13 @@ describe('SqliteRepository — subscription persistence', () => {
     repo.setSubscription(u.id, { cancelAtPeriodEnd: false });
     expect(repo.getSubscription(u.id).cancelAtPeriodEnd).toBe(false);
   });
+
+  it('tracks processed webhook event ids idempotently', () => {
+    expect(repo.hasWebhookEvent('evt_1')).toBe(false);
+    repo.recordWebhookEvent('evt_1');
+    expect(repo.hasWebhookEvent('evt_1')).toBe(true);
+    repo.recordWebhookEvent('evt_1'); // re-recording is a no-op, not an error
+    expect(repo.hasWebhookEvent('evt_1')).toBe(true);
+    expect(repo.hasWebhookEvent('evt_2')).toBe(false);
+  });
 });

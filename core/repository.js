@@ -26,6 +26,7 @@ export class Repository {
     this.tradeNotes = new Map(); // `${accountId}::${signature}` → note (durable)
     this.tradeSetups = new Map(); // `${accountId}::${signature}` → setup (durable)
     this.oauthIdentities = new Map(); // `${provider}:${sub}` → userId
+    this.webhookEvents = new Set(); // processed billing webhook event ids (idempotency)
   }
 
   /**
@@ -145,6 +146,16 @@ export class Repository {
     if (stripeCustomerId !== undefined) user.stripeCustomerId = stripeCustomerId;
     if (cancelAtPeriodEnd !== undefined) user.cancelAtPeriodEnd = !!cancelAtPeriodEnd;
     return this.getSubscription(userId);
+  }
+
+  /** Has this billing webhook event id already been applied? (idempotency) */
+  hasWebhookEvent(eventId) {
+    return this.webhookEvents.has(eventId);
+  }
+
+  /** Record a billing webhook event id as applied. */
+  recordWebhookEvent(eventId) {
+    if (eventId) this.webhookEvents.add(eventId);
   }
 
   // --- accounts ----------------------------------------------------------
