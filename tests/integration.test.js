@@ -1302,3 +1302,86 @@ describe('billing — Stripe provider (checkout + signed webhook)', () => {
     expect(await cancelFlag()).toBe(false);
   });
 });
+
+describe('advanced statistics endpoint', () => {
+  it('returns daily, kelly, sharpe, and economics for the scoped trades', async () => {
+    const user = await registerUser('stats@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const res = await request(app).get(`/api/statistics?accountId=${acct.id}`).set(h);
+    expect(res.status).toBe(200);
+    const s = res.body.statistics;
+    // TOS_CSV → AAPL +298 on 03-04, TSLA +149 on 03-05: two green days, no losses.
+    expect(s.daily.tradingDays).toBe(2);
+    expect(s.daily.greenDays).toBe(2);
+    expect(s.daily.dayWinRate).toBe(1);
+    expect(s.daily.bestDay).toMatchObject({ date: '2024-03-04' });
+    expect(s.payoffRatio).toBeNull(); // no losing trades yet
+    expect(s.expectancy).toBeGreaterThan(0);
+    expect(s).toHaveProperty('sharpe');
+    expect(s.kelly).toHaveProperty('clamped');
+  });
+
+  it('scopes statistics to a date range', async () => {
+    const user = await registerUser('statsrange@example.com');
+    const acct = await createAccount(user.token);
+    const h = { Authorization: `Bearer ${user.token}` };
+    await request(app).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+
+    const res = await request(app).get(`/api/statistics?accountId=${acct.id}&from=2024-03-05&to=2024-03-05`).set(h);
+    expect(res.body.statistics.daily.tradingDays).toBe(1); // only the TSLA day
+  });
+
+  it('requires authentication and entitlement', async () => {
+    const res = await request(app).get('/api/statistics?accountId=all');
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a malformed date range', async () => {
+    const user = await registerUser('statsbad@example.com');
+    const acct = await createAccount(user.token);
+    const res = await request(app).get(`/api/statistics?accountId=${acct.id}&from=03-2024`)
+      .set({ Authorization: `Bearer ${user.token}` });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('paywall toggle (open-access launch mode)', () => {
+  it('bypasses the paywall when billing is not enforced, even past trial', async () => {
+    const { Repository } = await import('../core/repository.js');
+    const repo = new Repository();
+    const openApp = createApp(repo, { billingEnforced: false });
+
+    const reg = await request(openApp).post('/api/auth/register').send({ email: 'open@example.com', password: 'secret123' });
+    const userId = reg.body.user.id;
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+
+    // Expire the trial outright — with the paywall off, access continues.
+    repo.setSubscription(userId, { trialEndsAt: new Date(Date.now() - 1000).toISOString(), subscriptionStatus: 'trialing' });
+
+    expect((await request(openApp).get('/api/accounts').set(h)).status).toBe(200);
+
+    const status = await request(openApp).get('/api/billing/status').set(h);
+    expect(status.body.enforced).toBe(false);
+
+    // Data routes work end to end (import + statistics) despite the lapsed trial.
+    const acct = (await request(openApp).post('/api/accounts').set(h).send({ name: 'Main', startingBalance: 10000 })).body.account;
+    await request(openApp).post('/api/import').set(h).send({ accountId: acct.id, csv: TOS_CSV });
+    expect((await request(openApp).get(`/api/statistics?accountId=${acct.id}`).set(h)).body.statistics.daily.tradingDays).toBe(2);
+  });
+
+  it('still enforces the paywall by default (enforced=true)', async () => {
+    const { Repository } = await import('../core/repository.js');
+    const repo = new Repository();
+    const gatedApp = createApp(repo, {}); // default
+
+    const reg = await request(gatedApp).post('/api/auth/register').send({ email: 'gated@example.com', password: 'secret123' });
+    repo.setSubscription(reg.body.user.id, { trialEndsAt: new Date(Date.now() - 1000).toISOString() });
+    const h = { Authorization: `Bearer ${reg.body.token}` };
+
+    expect((await request(gatedApp).get('/api/accounts').set(h)).status).toBe(402);
+    expect((await request(gatedApp).get('/api/billing/status').set(h)).body.enforced).toBe(true);
+  });
+});

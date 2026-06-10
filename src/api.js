@@ -84,6 +84,7 @@ export const api = {
   getDay: (accountId, date) =>
     request(`/day?accountId=${accountId}&date=${date}`),
   getAnalytics: (accountId, range = {}) => request(`/analytics?accountId=${accountId}${qs(range)}`),
+  getStatistics: (accountId, range = {}) => request(`/statistics?accountId=${accountId}${qs(range)}`),
   getPlaybook: (accountId, range = {}) => request(`/playbook?accountId=${accountId}${qs(range)}`),
   getYear: (accountId, year, basis) =>
     request(`/year?accountId=${accountId}&year=${year}${qs({ basis })}`),

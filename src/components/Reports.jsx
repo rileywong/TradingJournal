@@ -81,7 +81,17 @@ function BreakdownTable({ title, rows, keyLabel, onRowClick, isRowClickable = ()
  * Reports view — TradeZella-style performance breakdowns.
  * Props: analytics (from GET /api/analytics).
  */
-export default function Reports({ analytics, playbook, drawdownCurve, onDrill, yearHeatmap, onPrevYear, onNextYear }) {
+function StatCard({ label, value, hint, tone }) {
+  return (
+    <div className="metric-card" key={label}>
+      <div className="label">{label}</div>
+      <div className={`value${tone ? ' ' + tone : ''}`}>{value}</div>
+      {hint && <div className="muted report-hint">{hint}</div>}
+    </div>
+  );
+}
+
+export default function Reports({ analytics, statistics, playbook, drawdownCurve, onDrill, yearHeatmap, onPrevYear, onNextYear }) {
   if (!analytics) return <div className="empty-state">Loading reports…</div>;
   const { streaks, holdTime, winLoss } = analytics;
 
@@ -114,8 +124,39 @@ export default function Reports({ analytics, playbook, drawdownCurve, onDrill, y
     );
   }
 
+  const st = statistics;
+  const d = st && st.daily;
+
   return (
     <>
+      {st && (
+        <>
+          <div className="section-title">Key Statistics</div>
+          <div className="metrics-grid">
+            <StatCard label="Expectancy / Trade" value={fmtMoney(st.expectancy)} tone={st.expectancy > 0 ? 'pos' : st.expectancy < 0 ? 'neg' : ''} hint="Avg P&L you can expect per trade" />
+            <StatCard label="Payoff Ratio" value={fmtPf(st.payoffRatio)} hint="Avg win ÷ avg loss" />
+            <StatCard label="Avg Win / Avg Loss" value={<span><span className="pos">{fmtMoney(st.avgWin)}</span> / <span className="neg">{fmtMoney(st.avgLoss)}</span></span>} />
+            <StatCard label="Kelly Allocation" value={`${(st.kelly.clamped * 100).toFixed(1)}%`} hint={`Raw f* ${(st.kelly.fraction * 100).toFixed(1)}% · suggested size`} tone={st.kelly.fraction > 0 ? 'pos' : 'neg'} />
+            <StatCard label="Sharpe (daily)" value={st.sharpe.toFixed(2)} tone={st.sharpe > 0 ? 'pos' : st.sharpe < 0 ? 'neg' : ''} hint="Return per unit of daily volatility" />
+            <StatCard label="Total Commissions" value={fmtMoney(st.totalCommissions)} hint={`${st.totalVolume.toLocaleString()} shares/contracts traded`} />
+          </div>
+
+          {d && d.tradingDays > 0 && (
+            <>
+              <div className="section-title">Daily Performance</div>
+              <div className="metrics-grid">
+                <StatCard label="Trading Days" value={d.tradingDays} hint={`${d.avgTradesPerDay} trades/day avg`} />
+                <StatCard label="Day Win Rate" value={fmtPct(d.dayWinRate)} hint={`${d.greenDays} green · ${d.redDays} red`} tone={d.dayWinRate >= 0.5 ? 'pos' : ''} />
+                <StatCard label="Avg Daily P&L" value={fmtMoney(d.avgDailyPnl)} tone={d.avgDailyPnl > 0 ? 'pos' : d.avgDailyPnl < 0 ? 'neg' : ''} />
+                <StatCard label="Best Day" value={<span className="pos">{fmtMoney(d.bestDay ? d.bestDay.pnl : 0)}</span>} hint={d.bestDay ? d.bestDay.date : ''} />
+                <StatCard label="Worst Day" value={<span className="neg">{fmtMoney(d.worstDay ? d.worstDay.pnl : 0)}</span>} hint={d.worstDay ? d.worstDay.date : ''} />
+                <StatCard label="Day Streak (G/R max)" value={<span><span className="pos">{d.maxGreenStreak}</span> / <span className="neg">{d.maxRedStreak}</span></span>} hint="Consecutive green / red days" />
+              </div>
+            </>
+          )}
+        </>
+      )}
+
       <div className="section-title">Streaks &amp; Hold Time</div>
       <div className="metrics-grid">
         {summary.map((c) => (

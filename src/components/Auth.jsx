@@ -17,8 +17,8 @@ function loadScript(src) {
   return p;
 }
 
-export default function Auth({ onAuthed }) {
-  const [mode, setMode] = useState('login');
+export default function Auth({ onAuthed, initialMode = 'login', onBack }) {
+  const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -92,6 +92,9 @@ export default function Auth({ onAuthed }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
+        {onBack && (
+          <button type="button" className="auth-back" onClick={onBack}>← Back</button>
+        )}
         <div className="brand">
           <span className="dot" />
           <span>TradeJournal<small> Simplified</small></span>

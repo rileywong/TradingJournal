@@ -20,6 +20,7 @@ import {
   isValidDateKey,
 } from '../core/day.js';
 import { buildAnalytics } from '../core/analytics.js';
+import { buildStatistics } from '../core/statistics.js';
 import { buildPlaybook, listSetups } from '../core/playbook.js';
 import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
@@ -46,6 +47,11 @@ export function createApp(repo = new Repository(), options = {}) {
     createCheckout: async (userId) => ({ url: `/?checkout=mock&u=${userId}`, mock: true }),
   };
   const billing = options.billing || devBilling;
+  // Whether the paywall is enforced. When false (launch/early-access mode), the
+  // trial/subscription gate is bypassed so everyone has full access — the
+  // billing code, trial bookkeeping, and Stripe wiring all stay intact and can
+  // be switched on later by flipping this flag (PAYWALL_ENABLED).
+  const billingEnforced = options.billingEnforced !== false;
 
   // --- auth middleware ---------------------------------------------------
   function auth(req, res, next) {
@@ -88,6 +94,7 @@ export function createApp(repo = new Repository(), options = {}) {
   // live trial. Returns 402 with the billing state so the client shows the
   // paywall. Applied to data routes (not to /api/me or /api/billing/*).
   const requireEntitlement = (req, res, next) => {
+    if (!billingEnforced) return next(); // paywall disabled → unrestricted access
     const ent = computeEntitlement(repo.getSubscription(req.userId));
     if (!ent.entitled) {
       return res.status(402).json({ error: 'subscription required', code: 'subscription_required', billing: ent });
@@ -167,7 +174,11 @@ export function createApp(repo = new Repository(), options = {}) {
   // --- billing (trial + subscription) ------------------------------------
   // Current entitlement: trial days left / active / expired. Drives the paywall.
   app.get('/api/billing/status', auth, wrap((req, res) => {
-    res.json({ billing: computeEntitlement(repo.getSubscription(req.userId)), mode: billing.mode || 'stripe' });
+    res.json({
+      billing: computeEntitlement(repo.getSubscription(req.userId)),
+      mode: billing.mode || 'stripe',
+      enforced: billingEnforced,
+    });
   }));
 
   // Begin a subscription: returns a checkout URL to redirect the browser to.
@@ -423,6 +434,18 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ analytics: buildAnalytics(trades) });
   }));
 
+  // Advanced statistics (daily consistency, Kelly, Sharpe, trade economics),
+  // scope/period/basis aware like the other analytical endpoints.
+  app.get('/api/statistics', gate, wrap((req, res) => {
+    const { accountId, from, to } = req.query;
+    if ((from && !isValidDateKey(from)) || (to && !isValidDateKey(to))) {
+      return res.status(400).json({ error: 'from/to must be YYYY-MM-DD' });
+    }
+    const { trades: all } = scopeTrades(req.userId, accountId);
+    const trades = projectBasis(filterTrades(all, { from, to }), normalizeBasis(req.query.basis));
+    res.json({ statistics: buildStatistics(trades) });
+  }));
+
   // Setup playbook: per-strategy performance breakdown (scope/period/basis aware).
   app.get('/api/playbook', gate, wrap((req, res) => {
     const { accountId, from, to } = req.query;
@@ -489,8 +512,12 @@ if (isMain) {
     }
   }
 
-  createApp(repo, { oauth, googleClientId, appleClientId, billing }).listen(PORT, () => {
+  // Paywall enforcement: default ON, but set PAYWALL_ENABLED=false to launch in
+  // open/early-access mode (everyone gets full access; billing stays wired up).
+  const billingEnforced = String(process.env.PAYWALL_ENABLED ?? 'true').toLowerCase() !== 'false';
+
+  createApp(repo, { oauth, googleClientId, appleClientId, billing, billingEnforced }).listen(PORT, () => {
     const enabled = Object.keys(oauth).join(', ') || 'email/password only';
-    console.log(`TradeJournalSimplified API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'})`);
+    console.log(`TradeJournalSimplified API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'}; paywall: ${billingEnforced ? 'enforced' : 'OFF (open access)'})`);
   });
 }

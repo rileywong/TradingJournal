@@ -12,9 +12,11 @@ import Reports from './components/Reports.jsx';
 import ScoreCard from './components/ScoreCard.jsx';
 import TagManager from './components/TagManager.jsx';
 import Paywall from './components/Paywall.jsx';
+import Landing from './components/Landing.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
+  const [authView, setAuthView] = useState(null); // null = landing; 'login' | 'register' = auth form
   const [accounts, setAccounts] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -22,6 +24,7 @@ export default function App() {
   const [equityCurve, setEquityCurve] = useState([]);
   const [drawdownCurve, setDrawdownCurve] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [statistics, setStatistics] = useState(null);
   const [playbook, setPlaybook] = useState(null);
   const [yearHeatmap, setYearHeatmap] = useState(null);
   const [yearCursor, setYearCursor] = useState(() => new Date().getFullYear());
@@ -44,11 +47,15 @@ export default function App() {
   const [dayLoading, setDayLoading] = useState(false);
   const [billing, setBilling] = useState(null); // entitlement (null = loading)
   const [billingMode, setBillingMode] = useState(null); // 'stripe' | 'dev'
+  const [billingEnforced, setBillingEnforced] = useState(true); // paywall on/off
 
   // Resolve entitlement (trial / subscription) before loading any data.
   const refreshBilling = useCallback(() => {
     return api.billingStatus()
-      .then(({ billing, mode }) => { setBilling(billing); setBillingMode(mode); return billing; })
+      .then(({ billing, mode, enforced }) => {
+        setBilling(billing); setBillingMode(mode); setBillingEnforced(enforced !== false);
+        return billing;
+      })
       .catch(() => null);
   }, []);
 
@@ -58,26 +65,28 @@ export default function App() {
   }, [user, refreshBilling]);
 
   // Load accounts once entitled (data routes 402 when the trial has lapsed).
+  // With the paywall disabled, entitlement is irrelevant — everyone loads.
   useEffect(() => {
-    if (!user || !billing || !billing.entitled) return;
+    if (!user || !billing || (billingEnforced && !billing.entitled)) return;
     api.listAccounts().then(({ accounts }) => {
       setAccounts(accounts);
       if (accounts.length > 0) setActiveId((id) => id || accounts[0].id);
       else setShowNewAccount(true);
     }).catch(() => logout());
-  }, [user, billing]);
+  }, [user, billing, billingEnforced]);
 
   // The core state-transition: refresh metrics + trades + calendar together.
   // `range` (period bounds) scopes metrics, score, charts, reports, and the log;
   // the calendar stays month-navigated.
   const refreshDashboard = useCallback(async (accountId, cur, range = {}, pnlBasis = 'net') => {
     if (!accountId) return;
-    const [m, t, c, a, p] = await Promise.all([
+    const [m, t, c, a, p, s] = await Promise.all([
       api.getMetrics(accountId, { ...range, basis: pnlBasis }),
       api.getTrades(accountId, range),
       api.getCalendar(accountId, cur.year, cur.month, pnlBasis),
       api.getAnalytics(accountId, { ...range, basis: pnlBasis }),
       api.getPlaybook(accountId, { ...range, basis: pnlBasis }),
+      api.getStatistics(accountId, { ...range, basis: pnlBasis }),
     ]);
     setMetrics(m.metrics);
     setScore(m.score || null);
@@ -88,6 +97,7 @@ export default function App() {
     setNotedDays(c.notedDays || []);
     setAnalytics(a.analytics);
     setPlaybook(p.playbook || []);
+    setStatistics(s.statistics || null);
   }, []);
 
   useEffect(() => {
@@ -123,6 +133,7 @@ export default function App() {
     setDrawdownCurve([]);
     setAnalytics(null);
     setPlaybook(null);
+    setStatistics(null);
     setTrades([]);
     setCalendar(null);
     setNotedDays([]);
@@ -228,12 +239,22 @@ export default function App() {
     });
   };
 
-  if (!user) return <Auth onAuthed={setUser} />;
+  if (!user) {
+    if (!authView) {
+      return (
+        <Landing
+          onGetStarted={() => setAuthView('register')}
+          onSignIn={() => setAuthView('login')}
+        />
+      );
+    }
+    return <Auth initialMode={authView} onAuthed={setUser} onBack={() => setAuthView(null)} />;
+  }
 
   // Gate the whole app on entitlement. While billing is loading, render nothing
   // (avoids a flash of the dashboard before a possible paywall).
   if (billing === null) return <div className="app-loading" />;
-  if (!billing.entitled) {
+  if (billingEnforced && !billing.entitled) {
     return (
       <Paywall
         billing={billing}
@@ -294,7 +315,7 @@ export default function App() {
         </div>
       </div>
 
-      {billing.status === 'trialing' && (
+      {billingEnforced && billing.status === 'trialing' && (
         <div className="trial-banner">
           <span>
             {billing.daysLeft} day{billing.daysLeft !== 1 ? 's' : ''} left in your free trial.
@@ -309,7 +330,7 @@ export default function App() {
         </div>
       )}
 
-      {billing.status === 'past_due' && (
+      {billingEnforced && billing.status === 'past_due' && (
         <div className="trial-banner grace-banner">
           <span>
             Your last payment failed. Update your payment method to keep your subscription
@@ -326,7 +347,7 @@ export default function App() {
         </div>
       )}
 
-      {billing.status === 'active' && billing.cancelAtPeriodEnd && (
+      {billingEnforced && billing.status === 'active' && billing.cancelAtPeriodEnd && (
         <div className="trial-banner cancel-banner">
           <span>
             Your subscription is set to cancel
@@ -445,6 +466,7 @@ export default function App() {
             ) : (
               <Reports
                 analytics={analytics}
+                statistics={statistics}
                 playbook={playbook}
                 drawdownCurve={drawdownCurve}
                 onDrill={drillToTrades}

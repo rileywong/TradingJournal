@@ -312,6 +312,9 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 31. ✅ Dunning grace window (past_due keeps soft access + update-payment banner)
 32. ✅ Cancel-at-period-end notice (active-until-end banner with date + resume)
 33. ✅ Webhook event idempotency (dedupe Stripe retries/replays by event id)
+34. ✅ Advanced statistics (daily performance, Kelly, daily Sharpe, trade economics)
+35. ✅ Paywall toggle (PAYWALL_ENABLED=false → open/early-access mode)
+36. ✅ Public landing page (hero, feature grid, why-us → auth handoff)
 
 ### Billing security notes
 

@@ -30,6 +30,13 @@ institutional-grade performance metrics on a professional dashboard.
   log badges OPT/FUT rows.
 - **Statistical engine** — Net P&L, Win Rate, Profit Factor, Expectancy, Max
   Drawdown, equity curve, avg win/loss.
+- **Advanced statistics** (the edge) — a Key Statistics panel with expectancy
+  per trade, payoff ratio, **Kelly allocation**, a **daily Sharpe** ratio, and
+  trade economics (commissions, volume, avg size); plus a **Daily Performance**
+  view: trading days, day win rate, green/red days, best/worst day, avg daily
+  P&L, and consecutive green/red day streaks. Scope/period/basis aware.
+- **Landing page** — a public marketing page for logged-out visitors (hero,
+  feature grid, "why us"), with CTAs into the auth flow.
 - **Trade Score** — a composite 0–100 grade (à la TradeZella's Zella Score)
   blending win rate, profit factor, win/loss ratio, drawdown control, and
   consistency, with a weighted breakdown.
@@ -70,7 +77,9 @@ institutional-grade performance metrics on a professional dashboard.
   payment method" banner instead of an immediate lockout — until payment
   recovers or Stripe cancels the subscription. Cancelling in the portal keeps
   full access until the period end, with a banner showing the **end date** and a
-  one-click **Resume**.
+  one-click **Resume**. For an open/early-access launch, set
+  `PAYWALL_ENABLED=false` to bypass the gate entirely — everyone gets full
+  access while all the billing code stays wired up to switch on later.
 
 ## Stack
 
@@ -118,7 +127,7 @@ existing `dist/` build.)
 npm test
 ```
 
-287 tests across the CSV tokenizer, tolerant date parser, broker detection,
+304 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics
@@ -132,6 +141,32 @@ filter endpoints).
 
 A `SessionStart` hook (`.claude/hooks/session-start.sh`) installs dependencies
 automatically so the suite is ready to run in Claude Code on the web sessions.
+
+## Going live
+
+The app runs as a single process serving the built client + API. Build, then
+start with the env vars you need:
+
+```bash
+npm run serve   # or: npm run build && npm start
+```
+
+Environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `PORT` | HTTP port (default 4000). |
+| `DB_PATH` | SQLite file path (default `./data/trade.db`; data persists here). Use a mounted volume in production. |
+| `TJS_SECRET` | HMAC secret for signing session tokens — **set this** to a strong random value in production (defaults to a dev placeholder). |
+| `PAYWALL_ENABLED` | `false` to launch in open/early-access mode (no gate); omit/`true` to enforce the trial + subscription paywall. |
+| `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | Enable Google / Apple sign-in (optional). |
+| `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Enable live Stripe billing (optional; point the webhook at `POST /api/billing/webhook`). |
+| `APP_URL` | Public base URL, used for billing redirect targets. |
+
+**Early-access launch (attract users first):** set `DB_PATH` to a persistent
+volume, `TJS_SECRET` to a secret, and `PAYWALL_ENABLED=false`. Login + storage
+work; the paywall stays dormant until you set `PAYWALL_ENABLED=true` (and wire
+Stripe) to start charging — no code changes needed.
 
 ## Layout
 
