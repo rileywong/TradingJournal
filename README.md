@@ -1,4 +1,4 @@
-# Tradelytics
+# Greenstreak
 
 A lightweight, high-performance trading journal & analytics platform — a fast,
 clean **Light Theme** take on the best of TradeZella. Import brokerage CSV

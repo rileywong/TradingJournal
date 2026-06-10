@@ -148,7 +148,7 @@ export function createApp(repo = new Repository(), options = {}) {
   // visitors; only seeds the first time (when the demo account has no data).
   function ensureDemoUser() {
     const user = repo.upsertOAuthUser({
-      provider: 'demo', sub: 'demo', email: 'demo@tradelytics.app', emailVerified: true,
+      provider: 'demo', sub: 'demo', email: 'demo@greenstreak.app', emailVerified: true,
     });
     if (repo.listAccounts(user.id).length === 0) {
       const account = repo.createAccount(user.id, { name: 'Demo — ThinkOrSwim', startingBalance: 25000 });
@@ -554,6 +554,6 @@ if (isMain) {
 
   createApp(repo, { oauth, googleClientId, appleClientId, billing, billingEnforced }).listen(PORT, () => {
     const enabled = Object.keys(oauth).join(', ') || 'email/password only';
-    console.log(`Tradelytics API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'}; paywall: ${billingEnforced ? 'enforced' : 'OFF (open access)'})`);
+    console.log(`Greenstreak API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'}; paywall: ${billingEnforced ? 'enforced' : 'OFF (open access)'})`);
   });
 }

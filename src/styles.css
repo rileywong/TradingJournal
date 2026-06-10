@@ -1,4 +1,4 @@
-/* Tradelytics — Light Theme design tokens */
+/* Greenstreak — Light Theme design tokens */
 :root {
   --bg: #f6f8fb;
   --surface: #ffffff;
@@ -72,7 +72,7 @@ input:focus, select:focus, textarea:focus {
   z-index: 10;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; letter-spacing: -0.2px; }
-.brand .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, var(--accent), #8b5cf6); }
+.brand .dot { width: 22px; height: 22px; border-radius: 7px; background: linear-gradient(135deg, var(--positive), #059669); }
 .brand small { font-weight: 600; color: var(--muted); font-size: 11px; }
 
 .topbar-right { display: flex; align-items: center; gap: 14px; }

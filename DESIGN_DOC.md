@@ -1,4 +1,4 @@
-# Tradelytics — Design Document
+# Greenstreak — Design Document
 
 A lightweight, high-performance trading journal & analytics platform. It ingests
 brokerage CSV exports, normalizes raw executions into closed **Trades**, computes
@@ -30,7 +30,7 @@ Theme** dashboard inspired by TradeZella.
 ## 2. Folder Hierarchy
 
 ```
-Tradelytics/
+Greenstreak/
 ├─ DESIGN_DOC.md
 ├─ package.json
 ├─ vite.config.js
