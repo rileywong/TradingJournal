@@ -1,4 +1,4 @@
-# TradeJournalSimplified
+# Tradelytics
 
 A lightweight, high-performance trading journal & analytics platform — a fast,
 clean **Light Theme** take on the best of TradeZella. Import brokerage CSV
@@ -127,7 +127,7 @@ existing `dist/` build.)
 npm test
 ```
 
-304 tests across the CSV tokenizer, tolerant date parser, broker detection,
+311 tests across the CSV tokenizer, tolerant date parser, broker detection,
 execution de-duplication, append/merge imports, cross-account aggregation,
 trade-matching engine (splits/shorts/flips), metric math (zero-loss / zero-trade
 edge cases, drawdown series), calendar/day/weekly/yearly aggregation, analytics

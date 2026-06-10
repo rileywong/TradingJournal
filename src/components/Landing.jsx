@@ -32,7 +32,7 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
       <header className="landing-nav">
         <div className="brand">
           <span className="dot" />
-          <span>TradeJournal<small> Simplified</small></span>
+          <span>Tradelytics</span>
         </div>
         <nav className="landing-nav-actions">
           <button className="btn-ghost" onClick={onSignIn}>Sign in</button>
@@ -103,7 +103,7 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
       </section>
 
       <section className="landing-why">
-        <h2>Why TradeJournal Simplified?</h2>
+        <h2>Why Tradelytics?</h2>
         <div className="landing-why-grid">
           <div><strong>Lightweight by design.</strong> It loads fast, stays out of your way, and shows you the numbers without ten menus to dig through.</div>
           <div><strong>Statistics are the point.</strong> Most journals stop at win rate. We go deep — expectancy, Kelly, Sharpe, per-setup and per-session edge.</div>
@@ -117,7 +117,7 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
       </section>
 
       <footer className="landing-footer">
-        <span>© {new Date().getFullYear()} TradeJournal Simplified</span>
+        <span>© {new Date().getFullYear()} Tradelytics</span>
       </footer>
     </div>
   );

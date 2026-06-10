@@ -97,7 +97,7 @@ export default function Auth({ onAuthed, initialMode = 'login', onBack }) {
         )}
         <div className="brand">
           <span className="dot" />
-          <span>TradeJournal<small> Simplified</small></span>
+          <span>Tradelytics</span>
         </div>
         <h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
         <p className="sub">

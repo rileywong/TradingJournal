@@ -290,7 +290,7 @@ export default function App() {
       <div className="topbar">
         <div className="brand">
           <span className="dot" />
-          <span>TradeJournal<small> Simplified</small></span>
+          <span>Tradelytics</span>
         </div>
         <div className="topbar-right">
           {accounts.length > 0 && (

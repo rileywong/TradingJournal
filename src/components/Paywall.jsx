@@ -43,7 +43,7 @@ export default function Paywall({ billing, onActivated, onLogout }) {
       <div className="auth-card paywall-card">
         <div className="brand">
           <span className="dot" />
-          <span>TradeJournal<small> Simplified</small></span>
+          <span>Tradelytics</span>
         </div>
         <h1>{headline}</h1>
         <p className="sub">Subscribe to keep analyzing your trades. Cancel anytime.</p>
