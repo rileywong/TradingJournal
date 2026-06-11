@@ -709,3 +709,4 @@ html { scroll-behavior: smooth; }
 .insight-negative .insight-dot { background: var(--negative); }
 .insight-neutral { border-left-color: var(--accent); }
 .insight-neutral .insight-dot { background: var(--accent); }
+.onboard-sample { width: 100%; margin-top: 10px; font-size: 13px; }

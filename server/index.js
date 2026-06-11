@@ -245,6 +245,17 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ ok: true });
   }));
 
+  // One-click "try it with sample data": seed the user's OWN account with the
+  // demo dataset (through the real parse→match→store path) so a new user can
+  // explore immediately, then delete it when ready for real imports.
+  app.post('/api/me/sample-data', writeGate, wrap((req, res) => {
+    const account = repo.createAccount(req.userId, { name: 'Sample — ThinkOrSwim', startingBalance: 25000 });
+    const { executions } = parseExecutions(demoCsv(), {});
+    const { trades } = matchTrades(executions, { accountId: account.id, commissionPerTrade: 0 });
+    repo.saveImport(req.userId, account.id, executions, trades);
+    res.status(201).json({ account, trades: trades.length });
+  }));
+
   // Idempotently ensure a read-only demo user seeded with realistic sample
   // trades (via the same parse→match→store path as a real import). Reused across
   // visitors; only seeds the first time (when the demo account has no data).

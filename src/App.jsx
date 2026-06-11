@@ -452,7 +452,14 @@ export default function App() {
 
       <div className="container">
         {!scopeReady ? (
-          <Onboarding onCreate={() => setShowNewAccount(true)} />
+          <Onboarding
+            onCreate={() => setShowNewAccount(true)}
+            onSample={async () => {
+              const { account } = await api.loadSampleData();
+              setAccounts((prev) => [...prev, account]);
+              setActiveId(account.id);
+            }}
+          />
         ) : (
           <>
             <div className="tabs">

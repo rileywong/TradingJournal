@@ -71,6 +71,7 @@ export const api = {
   adminStats: () => request('/admin/stats'),
   listAccounts: () => request('/accounts'),
   createAccount: (body) => request('/accounts', { method: 'POST', body }),
+  loadSampleData: () => request('/me/sample-data', { method: 'POST' }),
   updateAccount: (id, body) => request(`/accounts/${id}`, { method: 'PATCH', body }),
   deleteAccount: (id) => request(`/accounts/${id}`, { method: 'DELETE' }),
   renameTag: (accountId, from, to) =>
