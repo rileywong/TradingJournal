@@ -12,6 +12,23 @@ export const PERIODS = [
 
 const KEYS = new Set(PERIODS.map((p) => p.key));
 
+const isDayKey = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+/**
+ * Effective range for a period selection. For the special 'custom' period, use
+ * the provided {from,to} (validated; reversed bounds swapped; invalid → ''),
+ * otherwise fall back to the presets.
+ */
+export function resolveRange(period, custom = {}, today = new Date()) {
+  if (period === 'custom') {
+    let from = isDayKey(custom.from) ? custom.from : '';
+    let to = isDayKey(custom.to) ? custom.to : '';
+    if (from && to && from > to) [from, to] = [to, from];
+    return { from, to };
+  }
+  return periodRange(period, today);
+}
+
 /**
  * @param {string} key one of PERIODS' keys
  * @param {Date} [today] reference "now" (injectable for tests)

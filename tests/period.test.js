@@ -27,3 +27,21 @@ describe('periodRange', () => {
     expect(PERIODS.map((p) => p.key)).toEqual(['all', '30d', 'mtd', 'ytd']);
   });
 });
+
+import { resolveRange } from '../core/period.js';
+
+describe('resolveRange', () => {
+  const today = new Date('2024-06-15T12:00:00Z');
+  it('passes through presets', () => {
+    expect(resolveRange('all', {}, today)).toEqual({ from: '', to: '' });
+    expect(resolveRange('ytd', {}, today)).toEqual({ from: '2024-01-01', to: '2024-06-15' });
+  });
+  it('uses validated custom bounds', () => {
+    expect(resolveRange('custom', { from: '2024-02-01', to: '2024-03-01' })).toEqual({ from: '2024-02-01', to: '2024-03-01' });
+  });
+  it('swaps reversed bounds and drops invalid ones', () => {
+    expect(resolveRange('custom', { from: '2024-03-01', to: '2024-02-01' })).toEqual({ from: '2024-02-01', to: '2024-03-01' });
+    expect(resolveRange('custom', { from: 'nope', to: '2024-03-01' })).toEqual({ from: '', to: '2024-03-01' });
+    expect(resolveRange('custom', {})).toEqual({ from: '', to: '' });
+  });
+});

@@ -773,3 +773,10 @@ html { scroll-behavior: smooth; }
 .theme-toggle button.active { background: var(--accent); color: #fff; }
 .settings-switch { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; cursor: pointer; }
 .settings-switch input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+/* ---------- custom date range ---------- */
+.custom-range { display: inline-flex; align-items: center; gap: 8px; }
+.custom-range input[type="date"] { padding: 7px 10px; font-size: 13px; color-scheme: light dark; }
+.custom-range-sep { color: var(--muted-2); font-weight: 700; }
+.custom-range-clear { background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 7px; font-size: 16px; line-height: 1; }
+.custom-range-clear:hover { background: var(--bg); color: var(--text); }

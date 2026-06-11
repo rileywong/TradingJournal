@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, getStoredUser, clearSession, setSession } from './api.js';
-import { PERIODS, periodRange } from '../core/period.js';
+import { PERIODS, periodRange, resolveRange } from '../core/period.js';
 import { buildInsights } from '../core/insights.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
@@ -42,6 +42,7 @@ export default function App() {
   const [onboardDismissed, setOnboardDismissed] = useState(() => readFlag('tjs_onboard_dismissed'));
   const [exploredReports, setExploredReports] = useState(() => readFlag('tjs_explored_reports'));
   const [period, setPeriod] = useState('all');
+  const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [basis, setBasis] = useState('net');
   const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
   const [trades, setTrades] = useState([]);
@@ -144,8 +145,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (activeId) refreshDashboard(activeId, cursor, periodRange(period), basis);
-  }, [activeId, cursor, period, basis, refreshDashboard]);
+    if (activeId) refreshDashboard(activeId, cursor, resolveRange(period, customRange), basis);
+  }, [activeId, cursor, period, customRange, basis, refreshDashboard]);
 
   // Yearly heatmap loads independently (its own year cursor, basis-aware).
   const loadYear = useCallback((accountId, year, pnlBasis) => {
@@ -219,7 +220,7 @@ export default function App() {
     applyTradeUpdate(trade);
     // R-multiple stats depend on risk; refresh analytics (scoped) in the background.
     if (activeId) {
-      api.getAnalytics(activeId, { ...periodRange(period), basis })
+      api.getAnalytics(activeId, { ...resolveRange(period, customRange), basis })
         .then((a) => setAnalytics(a.analytics))
         .catch(() => {});
     }
@@ -235,7 +236,7 @@ export default function App() {
     applyTradeUpdate(trade);
     // The playbook breakdown depends on setups; refresh it (scoped) in the background.
     if (activeId) {
-      api.getPlaybook(activeId, { ...periodRange(period), basis })
+      api.getPlaybook(activeId, { ...resolveRange(period, customRange), basis })
         .then((p) => setPlaybook(p.playbook || []))
         .catch(() => {});
     }
@@ -491,7 +492,35 @@ export default function App() {
                     {p.label}
                   </button>
                 ))}
+                <button
+                  className={`period-btn ${period === 'custom' ? 'active' : ''}`}
+                  onClick={() => setPeriod('custom')}
+                >
+                  Custom
+                </button>
               </div>
+              {period === 'custom' && (
+                <div className="custom-range">
+                  <input
+                    type="date"
+                    value={customRange.from}
+                    max={customRange.to || undefined}
+                    onChange={(e) => setCustomRange((r) => ({ ...r, from: e.target.value }))}
+                    aria-label="From date"
+                  />
+                  <span className="custom-range-sep">→</span>
+                  <input
+                    type="date"
+                    value={customRange.to}
+                    min={customRange.from || undefined}
+                    onChange={(e) => setCustomRange((r) => ({ ...r, to: e.target.value }))}
+                    aria-label="To date"
+                  />
+                  {(customRange.from || customRange.to) && (
+                    <button className="custom-range-clear" onClick={() => setCustomRange({ from: '', to: '' })} aria-label="Clear dates">×</button>
+                  )}
+                </div>
+              )}
               <div className="period-seg" role="group" aria-label="P&L basis">
                 {[['net', 'Net'], ['gross', 'Gross']].map(([key, label]) => (
                   <button
@@ -567,7 +596,7 @@ export default function App() {
                         <ImportPanel
                           accountId={activeId}
                           onImported={() => {
-                            refreshDashboard(activeId, cursor, periodRange(period), basis);
+                            refreshDashboard(activeId, cursor, resolveRange(period, customRange), basis);
                             loadYear(activeId, yearCursor, basis);
                             if (selectedDate) openDay(selectedDate);
                           }}
@@ -623,7 +652,7 @@ export default function App() {
           accountId={activeId}
           onClose={() => setShowTagManager(false)}
           onChanged={() => {
-            refreshDashboard(activeId, cursor, periodRange(period), basis);
+            refreshDashboard(activeId, cursor, resolveRange(period, customRange), basis);
             loadYear(activeId, yearCursor, basis);
           }}
         />
@@ -648,7 +677,7 @@ export default function App() {
             setAccounts((prev) => prev.map((a) => (a.id === acct.id ? acct : a)));
             setEditAccount(null);
             // Starting balance / commission affect the snapshot — refresh.
-            refreshDashboard(acct.id, cursor, periodRange(period), basis);
+            refreshDashboard(acct.id, cursor, resolveRange(period, customRange), basis);
           }}
           onDeleted={(id) => {
             setEditAccount(null);
