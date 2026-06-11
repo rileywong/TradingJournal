@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { Repository, RepoError } from '../core/repository.js';
-import { signToken, verifyToken } from '../core/auth.js';
+import { signToken, verifyToken, signUnsubscribe, verifyUnsubscribe } from '../core/auth.js';
 import { parseExecutions, dedupeExecutions, inspectCsv } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
 import { computeMetrics, equityCurve, drawdownSeries } from '../core/metrics.js';
@@ -381,18 +381,38 @@ export function createApp(repo = new Repository(), options = {}) {
   const PRICE_PER_MONTH = 10;
 
   // Send the weekly performance digest to every user with trades in the last 7
-  // days. Returns how many were sent.
+  // days who hasn't opted out. Returns how many were sent.
   const sendWeeklyDigests = () => {
-    const users = repo.adminListUsers().filter((u) => u.email !== DEMO_EMAIL && u.tradeCount > 0);
+    const base = appUrl();
+    const users = repo.adminListUsers().filter((u) => u.email !== DEMO_EMAIL && u.tradeCount > 0 && !u.emailOptOut);
     let sent = 0;
     for (const u of users) {
       const digest = buildWeeklyDigest(repo.listAllTrades(u.id));
       if (!digest) continue;
-      sendEmail(renderWeeklyDigestEmail({ email: u.email, appUrl: appUrl(), digest }));
+      const unsubscribeUrl = base ? `${base}/api/unsubscribe?token=${signUnsubscribe(u.id)}` : '';
+      sendEmail(renderWeeklyDigestEmail({ email: u.email, appUrl: base, digest, unsubscribeUrl }));
       sent += 1;
     }
     return sent;
   };
+
+  // One-click unsubscribe from digest emails (no login). Returns a tiny page.
+  app.get('/api/unsubscribe', wrap((req, res) => {
+    const userId = verifyUnsubscribe(req.query.token);
+    if (userId) { try { repo.setEmailOptOut(userId, true); } catch { /* unknown user → still confirm */ } }
+    res.type('html').send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:420px;margin:80px auto;text-align:center;color:#0e2a33">
+<h1 style="font-size:22px">You're unsubscribed</h1>
+<p style="color:#5b7c87">You won't receive weekly digest emails anymore. You can re-enable them anytime in Settings.</p>
+${appUrl() ? `<p><a href="${appUrl()}" style="color:#0891b2;font-weight:700">Back to Greenstreak</a></p>` : ''}
+</div>`);
+  }));
+
+  // Email preferences (in-app toggle for the digest).
+  app.get('/api/me/email-prefs', auth, wrap((req, res) => res.json(repo.getEmailPrefs(req.userId))));
+  app.put('/api/me/email-prefs', auth, blockDemoWrites, wrap((req, res) => {
+    res.json(repo.setEmailOptOut(req.userId, (req.body || {}).digest === false));
+  }));
 
   // Admin-triggered (button in the dashboard).
   app.post('/api/admin/send-digests', auth, requireAdmin, wrap((_req, res) => {

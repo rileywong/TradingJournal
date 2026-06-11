@@ -102,8 +102,9 @@ const fmtMoney = (n) => `${n < 0 ? '-' : ''}$${Math.abs(Math.round(n)).toLocaleS
 const fmtPct = (r) => `${Math.round((r || 0) * 100)}%`;
 
 /** Weekly performance digest email. `digest` is from buildWeeklyDigest(). */
-export function renderWeeklyDigestEmail({ email, appUrl, digest } = {}) {
+export function renderWeeklyDigestEmail({ email, appUrl, digest, unsubscribeUrl } = {}) {
   const url = link(appUrl);
+  const unsub = unsubscribeUrl ? String(unsubscribeUrl) : '';
   const d = digest || {};
   const sign = d.netPnl >= 0 ? '+' : '';
   const bestLine = d.bestDay ? `Best day: ${d.bestDay.date} (${fmtMoney(d.bestDay.pnl)})` : '';
@@ -115,7 +116,8 @@ export function renderWeeklyDigestEmail({ email, appUrl, digest } = {}) {
       + `Net P&L: ${sign}${fmtMoney(d.netPnl)}\n`
       + `Trades: ${d.trades} (${d.wins}W / ${d.losses}L, ${fmtPct(d.winRate)} win rate)\n`
       + `${bestLine}\n${worstLine}\n\n`
-      + (url ? `See the full breakdown: ${url}\n` : ''),
+      + (url ? `See the full breakdown: ${url}\n` : '')
+      + (unsub ? `\nUnsubscribe from weekly digests: ${unsub}\n` : ''),
     html: shell(`<h1 style="font-size:20px;margin:0 0 12px">Your week on ${BRAND}</h1>
 <table style="width:100%;border-collapse:collapse;font-size:15px">
 <tr><td style="padding:6px 0;color:#5e7268">Net P&L</td><td style="padding:6px 0;text-align:right;font-weight:800;color:${d.netPnl >= 0 ? '#10b981' : '#ef4444'}">${sign}${fmtMoney(d.netPnl)}</td></tr>
@@ -123,6 +125,7 @@ export function renderWeeklyDigestEmail({ email, appUrl, digest } = {}) {
 ${d.bestDay ? `<tr><td style="padding:6px 0;color:#5e7268">Best day</td><td style="padding:6px 0;text-align:right;font-weight:700">${d.bestDay.date} (${fmtMoney(d.bestDay.pnl)})</td></tr>` : ''}
 ${d.worstDay ? `<tr><td style="padding:6px 0;color:#5e7268">Toughest day</td><td style="padding:6px 0;text-align:right;font-weight:700">${d.worstDay.date} (${fmtMoney(d.worstDay.pnl)})</td></tr>` : ''}
 </table>
-${url ? `<p style="margin-top:18px"><a href="${url}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px">See the full breakdown</a></p>` : ''}`),
+${url ? `<p style="margin-top:18px"><a href="${url}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px">See the full breakdown</a></p>` : ''}
+${unsub ? `<p style="font-size:12px;color:#93a79c;margin-top:18px">Don't want these? <a href="${unsub}" style="color:#93a79c">Unsubscribe from weekly digests</a>.</p>` : ''}`),
   };
 }

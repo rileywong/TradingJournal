@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api, getToken } from '../api.js';
 
 // Account settings: change password, export data, delete account. Opened from
@@ -13,6 +13,13 @@ export default function Settings({ user, onClose, onDeleted }) {
   const [theme, setTheme] = useState(() => {
     try { return localStorage.getItem('tjs_theme') || 'light'; } catch { return 'light'; }
   });
+  const [digest, setDigest] = useState(null);
+  useEffect(() => { api.getEmailPrefs().then((p) => setDigest(p.digest)).catch(() => {}); }, []);
+  const toggleDigest = async () => {
+    const next = !digest;
+    setDigest(next);
+    try { await api.setEmailPrefs(next); } catch { setDigest(!next); }
+  };
   const applyTheme = (t) => {
     setTheme(t);
     try { localStorage.setItem('tjs_theme', t); } catch { /* ignore */ }
@@ -82,6 +89,14 @@ export default function Settings({ user, onClose, onDeleted }) {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-label">Emails</div>
+          <label className="settings-switch">
+            <span>Weekly performance digest</span>
+            <input type="checkbox" checked={!!digest} disabled={digest === null} onChange={toggleDigest} />
+          </label>
         </div>
 
         <div className="settings-section">

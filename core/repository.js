@@ -132,6 +132,21 @@ export class Repository {
     return user ? this.publicUser(user) : null;
   }
 
+  // --- email preferences -------------------------------------------------
+  getEmailPrefs(userId) {
+    const u = this.users.get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    return { digest: !u.emailOptOut };
+  }
+
+  /** Set marketing-email opt-out (transactional email always sends). */
+  setEmailOptOut(userId, optOut) {
+    const u = this.users.get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    u.emailOptOut = !!optOut;
+    return { digest: !u.emailOptOut };
+  }
+
   // --- goals (monthly targets) -------------------------------------------
   getGoals(userId) {
     const u = this.users.get(userId);
@@ -224,6 +239,7 @@ export class Repository {
       createdAt: u.createdAt,
       oauth: !u.passwordHash,
       source: u.source || 'direct',
+      emailOptOut: !!u.emailOptOut,
       subscriptionStatus: u.subscriptionStatus || 'trialing',
       trialEndsAt: u.trialEndsAt || null,
       currentPeriodEnd: u.currentPeriodEnd || null,

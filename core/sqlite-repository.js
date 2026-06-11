@@ -86,7 +86,7 @@ export class SqliteRepository {
       ['currentPeriodEnd', 'TEXT'], ['stripeCustomerId', 'TEXT'],
       ['cancelAtPeriodEnd', 'INTEGER'],
       ['goalMonthlyPnl', 'REAL'], ['goalWinRate', 'REAL'],
-      ['source', 'TEXT'],
+      ['source', 'TEXT'], ['emailOptOut', 'INTEGER'],
     ]) {
       if (!userCols.includes(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
     }
@@ -155,7 +155,7 @@ export class SqliteRepository {
   // --- admin (site-wide aggregates; the CALLER must enforce admin access) ---
   adminListUsers() {
     const rows = this.db.prepare(`
-      SELECT u.id, u.email, u.createdAt, u.passwordHash, u.source,
+      SELECT u.id, u.email, u.createdAt, u.passwordHash, u.source, u.emailOptOut,
              u.subscriptionStatus, u.trialEndsAt, u.currentPeriodEnd, u.cancelAtPeriodEnd,
              (SELECT COUNT(*) FROM accounts a WHERE a.userId = u.id) AS accountCount,
              (SELECT COUNT(*) FROM trades t
@@ -167,7 +167,8 @@ export class SqliteRepository {
       email: u.email,
       createdAt: u.createdAt,
       oauth: !u.passwordHash,
-      source: u.source || 'direct',
+      source: u.source || "direct",
+      emailOptOut: !!u.emailOptOut,
       subscriptionStatus: u.subscriptionStatus || 'trialing',
       trialEndsAt: u.trialEndsAt || null,
       currentPeriodEnd: u.currentPeriodEnd || null,
@@ -228,6 +229,20 @@ export class SqliteRepository {
     if (!newPassword || String(newPassword).length < 6) throw new RepoError('password must be at least 6 characters', 400);
     this.db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(hashPassword(newPassword), userId);
     return this.publicUser(user);
+  }
+
+  // --- email preferences -------------------------------------------------
+  getEmailPrefs(userId) {
+    const u = this.db.prepare('SELECT emailOptOut FROM users WHERE id = ?').get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    return { digest: !u.emailOptOut };
+  }
+
+  setEmailOptOut(userId, optOut) {
+    const u = this.db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    this.db.prepare('UPDATE users SET emailOptOut = ? WHERE id = ?').run(optOut ? 1 : 0, userId);
+    return { digest: !optOut };
   }
 
   // --- password reset ----------------------------------------------------

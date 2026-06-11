@@ -80,3 +80,20 @@ export function verifyToken(token) {
     return null;
   }
 }
+
+// --- unsubscribe tokens ---------------------------------------------------
+// Non-expiring, HMAC-signed token identifying a user, for one-click email
+// unsubscribe links (no login required). Scoped with an "unsub:" prefix so it
+// can't be confused with a session token.
+export function signUnsubscribe(userId) {
+  const u = Buffer.from(String(userId)).toString('base64url');
+  return `${u}.${sign(`unsub:${u}`)}`;
+}
+
+export function verifyUnsubscribe(token) {
+  const [u, sig] = String(token || '').split('.');
+  if (!u || !sig) return null;
+  const expected = sign(`unsub:${u}`);
+  if (sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  return Buffer.from(u, 'base64url').toString();
+}

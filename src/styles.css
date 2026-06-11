@@ -771,3 +771,5 @@ html { scroll-behavior: smooth; }
 .theme-toggle { display: inline-flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 4px; }
 .theme-toggle button { background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 6px; }
 .theme-toggle button.active { background: var(--accent); color: #fff; }
+.settings-switch { display: flex; align-items: center; justify-content: space-between; font-size: 14px; font-weight: 600; cursor: pointer; }
+.settings-switch input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
