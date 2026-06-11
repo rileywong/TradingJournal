@@ -58,6 +58,19 @@ export function createApp(repo = new Repository(), options = {}) {
   // be switched on later by flipping this flag (PAYWALL_ENABLED).
   const billingEnforced = options.billingEnforced !== false;
 
+  // Site admins (full-site stats dashboard). Designated by email via the
+  // ADMIN_EMAILS env (comma-separated) or options.adminEmails (for tests).
+  const adminEmails = new Set(
+    (options.adminEmails || (process.env.ADMIN_EMAILS || '').split(','))
+      .map((e) => String(e).trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const isAdminEmail = (email) => adminEmails.has(String(email || '').toLowerCase());
+  // Tag the user payload the client stores so it can show the Admin entry.
+  const withAdmin = (user) => (user ? { ...user, isAdmin: isAdminEmail(user.email) } : user);
+  // The shared public-demo user; excluded from admin stats (not a real signup).
+  const DEMO_EMAIL = 'demo@greenstreak.app';
+
   // --- auth middleware ---------------------------------------------------
   function auth(req, res, next) {
     const header = req.headers.authorization || '';
@@ -137,14 +150,14 @@ export function createApp(repo = new Repository(), options = {}) {
     const { email, password } = req.body || {};
     const user = repo.createUser(email, password);
     const token = signToken({ sub: user.id, email: user.email });
-    res.status(201).json({ token, user });
+    res.status(201).json({ token, user: withAdmin(user) });
   }));
 
   app.post('/api/auth/login', wrap((req, res) => {
     const { email, password } = req.body || {};
     const user = repo.authenticate(email, password);
     const token = signToken({ sub: user.id, email: user.email });
-    res.json({ token, user });
+    res.json({ token, user: withAdmin(user) });
   }));
 
   // Idempotently ensure a read-only demo user seeded with realistic sample
@@ -152,7 +165,7 @@ export function createApp(repo = new Repository(), options = {}) {
   // visitors; only seeds the first time (when the demo account has no data).
   function ensureDemoUser() {
     const user = repo.upsertOAuthUser({
-      provider: 'demo', sub: 'demo', email: 'demo@greenstreak.app', emailVerified: true,
+      provider: 'demo', sub: 'demo', email: DEMO_EMAIL, emailVerified: true,
     });
     if (repo.listAccounts(user.id).length === 0) {
       const account = repo.createAccount(user.id, { name: 'Demo — ThinkOrSwim', startingBalance: 25000 });
@@ -170,7 +183,7 @@ export function createApp(repo = new Repository(), options = {}) {
   app.post('/api/demo', wrap((_req, res) => {
     const user = ensureDemoUser();
     const token = signToken({ sub: user.id, email: user.email, demo: true });
-    res.json({ token, user: { ...user, demo: true } });
+    res.json({ token, user: { ...withAdmin(user), demo: true } });
   }));
 
   // Which third-party sign-in providers are configured (for the login screen).
@@ -199,7 +212,7 @@ export function createApp(repo = new Repository(), options = {}) {
       }
       const user = repo.upsertOAuthUser(identity);
       const token = signToken({ sub: user.id, email: user.email });
-      res.json({ token, user });
+      res.json({ token, user: withAdmin(user) });
     });
 
   app.post('/api/auth/google', oauthLogin('google'));
@@ -208,7 +221,87 @@ export function createApp(repo = new Repository(), options = {}) {
   app.get('/api/me', auth, wrap((req, res) => {
     const user = repo.getUser(req.userId);
     if (!user) return res.status(404).json({ error: 'not found' });
-    res.json({ user });
+    res.json({ user: withAdmin(user) });
+  }));
+
+  // --- admin: site-wide stats (gated to ADMIN_EMAILS) --------------------
+  function requireAdmin(req, res, next) {
+    const u = req.isDemo ? null : repo.getUser(req.userId);
+    if (!u || !isAdminEmail(u.email)) return res.status(403).json({ error: 'admin access required' });
+    next();
+  }
+
+  const PRICE_PER_MONTH = 10;
+
+  app.get('/api/admin/stats', auth, requireAdmin, wrap((_req, res) => {
+    const now = Date.now();
+    const DAY = 86_400_000;
+    const users = repo.adminListUsers().filter((u) => u.email !== DEMO_EMAIL);
+
+    const entOf = (u) => computeEntitlement({
+      subscriptionStatus: u.subscriptionStatus,
+      trialEndsAt: u.trialEndsAt,
+      currentPeriodEnd: u.currentPeriodEnd,
+      cancelAtPeriodEnd: u.cancelAtPeriodEnd,
+    }, now);
+
+    const funnel = { active: 0, trialing: 0, past_due: 0, trial_expired: 0, expired: 0, none: 0 };
+    let usersWithData = 0, totalAccounts = 0, totalTrades = 0;
+    let today = 0, last7 = 0, last30 = 0;
+    const dayBuckets = new Map(); // yyyy-mm-dd → signups
+
+    for (const u of users) {
+      funnel[entOf(u).status] = (funnel[entOf(u).status] || 0) + 1;
+      if (u.tradeCount > 0) usersWithData += 1;
+      totalAccounts += u.accountCount;
+      totalTrades += u.tradeCount;
+      const age = now - Date.parse(u.createdAt);
+      if (age <= DAY) today += 1;
+      if (age <= 7 * DAY) last7 += 1;
+      if (age <= 30 * DAY) {
+        last30 += 1;
+        const key = new Date(Date.parse(u.createdAt)).toISOString().slice(0, 10);
+        dayBuckets.set(key, (dayBuckets.get(key) || 0) + 1);
+      }
+    }
+
+    // 30-day signup series (oldest → newest), zero-filled for a sparkline.
+    const signupSeries = [];
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(now - i * DAY).toISOString().slice(0, 10);
+      signupSeries.push({ date, count: dayBuckets.get(date) || 0 });
+    }
+
+    const payingUsers = funnel.active;
+    const lapsed = funnel.trial_expired + funnel.expired;
+    const recentSignups = [...users]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 12)
+      .map((u) => ({
+        email: u.email,
+        createdAt: u.createdAt,
+        status: entOf(u).status,
+        oauth: u.oauth,
+        tradeCount: u.tradeCount,
+      }));
+
+    res.json({
+      totalUsers: users.length,
+      signups: { today, last7, last30 },
+      funnel,
+      revenue: {
+        payingUsers,
+        mrr: payingUsers * PRICE_PER_MONTH,
+        arr: payingUsers * PRICE_PER_MONTH * 12,
+        pricePerMonth: PRICE_PER_MONTH,
+      },
+      // Trial→paid conversion among users who've reached a decision point.
+      conversion: { paid: payingUsers, lapsed, rate: payingUsers + lapsed > 0 ? payingUsers / (payingUsers + lapsed) : null },
+      engagement: { usersWithData, totalAccounts, totalTrades },
+      signupSeries,
+      recentSignups,
+      generatedAt: new Date(now).toISOString(),
+    });
   }));
 
   // --- billing (trial + subscription) ------------------------------------

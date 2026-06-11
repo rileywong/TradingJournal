@@ -12,7 +12,7 @@ import { mkdirSync } from 'node:fs';
 mkdirSync(OUT, { recursive: true });
 
 const repo = new Repository();
-const server = createApp(repo, { billingEnforced: true }).listen(PORT);
+const server = createApp(repo, { billingEnforced: true, adminEmails: ['alex@demo.test'] }).listen(PORT);
 await new Promise((r) => server.once('listening', r));
 
 const post = async (path, body, token) => {
@@ -43,6 +43,30 @@ repo.setSubscription(b.user.id, {
   subscriptionStatus: 'trialing',
   trialEndsAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
 });
+
+// 4) Seed a richer population so the admin dashboard has something to show:
+// spread signups across the last 30 days with varied subscription states.
+const DAY = 86_400_000;
+const names = ['mia', 'liam', 'noah', 'ava', 'ethan', 'sofia', 'lucas', 'emma', 'leo', 'isla', 'kai', 'zoe'];
+let seeded = 0;
+for (let i = 0; i < names.length; i++) {
+  const u = await post('/api/auth/register', { email: `${names[i]}@demo.test`, password: 'password1' });
+  // Backdate the signup date for the sparkline.
+  repo.users.get(u.user.id).createdAt = new Date(Date.now() - ((i * 29) / names.length) * DAY).toISOString();
+  // Give a few of them imported data (activation) — while still on a live trial.
+  if (i % 2 === 0) {
+    const { account } = await post('/api/accounts', { name: 'Main', startingBalance: 10000 }, u.token);
+    await post('/api/import', { accountId: account.id, csv, mode: 'replace' }, u.token);
+    seeded++;
+  }
+  // Then vary subscription state: ~third paying, some lapsed, rest still trialing.
+  if (i % 3 === 0) {
+    repo.setSubscription(u.user.id, { subscriptionStatus: 'active', currentPeriodEnd: new Date(Date.now() + 20 * DAY).toISOString() });
+  } else if (i % 5 === 0) {
+    repo.setSubscription(u.user.id, { subscriptionStatus: 'trialing', trialEndsAt: new Date(Date.now() - 2 * DAY).toISOString() });
+  }
+}
+void seeded;
 
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
@@ -103,6 +127,12 @@ if (await addAcct.count()) { await addAcct.click(); await sleep(400); await shot
 await setSession(b);
 await page.goto(BASE + '/'); await sleep(900);
 await shot('10-paywall', { fullPage: true });
+
+// ---- admin dashboard (alex is the configured admin) ----
+await setSession(a);
+await page.goto(BASE + '/'); await sleep(900);
+const adminBtn = page.getByRole('button', { name: 'Admin', exact: true });
+if (await adminBtn.count()) { await adminBtn.click(); await sleep(900); await shot('11-admin', { fullPage: true }); }
 
 await browser.close();
 server.close();

@@ -80,6 +80,11 @@ institutional-grade performance metrics on a professional dashboard.
   one-click **Resume**. For an open/early-access launch, set
   `PAYWALL_ENABLED=false` to bypass the gate entirely — everyone gets full
   access while all the billing code stays wired up to switch on later.
+- **Admin dashboard** — accounts listed in `ADMIN_EMAILS` get an in-app **Admin**
+  view with site-wide stats: total users, paying subscribers, **MRR/ARR**, the
+  subscription funnel (active / trialing / past-due / expired), trial→paid
+  conversion, a 30-day signup sparkline, activation (users who imported), and a
+  recent-signups table. Server-gated; the public demo user is excluded.
 
 ## Stack
 
@@ -162,6 +167,7 @@ Environment variables:
 | `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | Enable Google / Apple sign-in (optional). |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Enable live Stripe billing (optional; point the webhook at `POST /api/billing/webhook`). |
 | `APP_URL` | Public base URL, used for billing redirect targets. Optional on Render (falls back to `RENDER_EXTERNAL_URL`). |
+| `ADMIN_EMAILS` | Comma-separated emails granted the in-app **admin dashboard** (site-wide users / MRR / subscription funnel / signups). |
 
 In production (`NODE_ENV=production`) the server **refuses to boot** with the
 default `TJS_SECRET`, so a forgeable-token deploy can't happen by accident.

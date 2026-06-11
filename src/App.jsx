@@ -13,6 +13,7 @@ import ScoreCard from './components/ScoreCard.jsx';
 import TagManager from './components/TagManager.jsx';
 import Paywall from './components/Paywall.jsx';
 import Landing from './components/Landing.jsx';
+import AdminDashboard from './components/AdminDashboard.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -29,6 +30,7 @@ export default function App() {
   const [yearHeatmap, setYearHeatmap] = useState(null);
   const [yearCursor, setYearCursor] = useState(() => new Date().getFullYear());
   const [view, setView] = useState('dashboard');
+  const [adminView, setAdminView] = useState(false);
   const [period, setPeriod] = useState('all');
   const [basis, setBasis] = useState('net');
   const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
@@ -328,11 +330,23 @@ export default function App() {
               Manage subscription
             </button>
           )}
+          {user.isAdmin && !user.demo && (
+            <button
+              className={`btn-ghost ${adminView ? 'active' : ''}`}
+              onClick={() => setAdminView((v) => !v)}
+            >
+              {adminView ? 'Exit admin' : 'Admin'}
+            </button>
+          )}
           <span className="muted">{user.demo ? 'Demo mode' : user.email}</span>
           <button className="btn-ghost" onClick={logout}>{user.demo ? 'Exit demo' : 'Sign out'}</button>
         </div>
       </div>
 
+      {adminView ? (
+        <AdminDashboard onBack={() => setAdminView(false)} />
+      ) : (
+      <>
       {user.demo && (
         <div className="trial-banner demo-banner">
           <span>You're exploring demo data. Sign up to import your own trades and track your edge.</span>
@@ -560,6 +574,8 @@ export default function App() {
             });
           }}
         />
+      )}
+      </>
       )}
     </div>
   );

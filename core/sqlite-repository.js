@@ -142,6 +142,30 @@ export class SqliteRepository {
     return { id: user.id, email: user.email, createdAt: user.createdAt };
   }
 
+  // --- admin (site-wide aggregates; the CALLER must enforce admin access) ---
+  adminListUsers() {
+    const rows = this.db.prepare(`
+      SELECT u.id, u.email, u.createdAt, u.passwordHash,
+             u.subscriptionStatus, u.trialEndsAt, u.currentPeriodEnd, u.cancelAtPeriodEnd,
+             (SELECT COUNT(*) FROM accounts a WHERE a.userId = u.id) AS accountCount,
+             (SELECT COUNT(*) FROM trades t
+                WHERE t.accountId IN (SELECT id FROM accounts a2 WHERE a2.userId = u.id)) AS tradeCount
+      FROM users u
+    `).all();
+    return rows.map((u) => ({
+      id: u.id,
+      email: u.email,
+      createdAt: u.createdAt,
+      oauth: !u.passwordHash,
+      subscriptionStatus: u.subscriptionStatus || 'trialing',
+      trialEndsAt: u.trialEndsAt || null,
+      currentPeriodEnd: u.currentPeriodEnd || null,
+      cancelAtPeriodEnd: !!u.cancelAtPeriodEnd,
+      accountCount: u.accountCount || 0,
+      tradeCount: u.tradeCount || 0,
+    }));
+  }
+
   #insertUser(user) {
     this.db.prepare(`
       INSERT INTO users (id, email, passwordHash, createdAt, subscriptionStatus, trialEndsAt, currentPeriodEnd)

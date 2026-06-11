@@ -43,3 +43,5 @@ services:
         sync: false             # optional — enables "Sign in with Google"
       - key: APPLE_CLIENT_ID
         sync: false             # optional — enables "Sign in with Apple"
+      - key: ADMIN_EMAILS
+        sync: false             # comma-separated admin emails → the site-stats dashboard

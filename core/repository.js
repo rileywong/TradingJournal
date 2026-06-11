@@ -123,6 +123,38 @@ export class Repository {
     return { id: user.id, email: user.email, createdAt: user.createdAt };
   }
 
+  // --- admin (site-wide aggregates; the CALLER must enforce admin access) ---
+  /**
+   * One row per user with subscription fields and account/trade counts, for the
+   * admin stats dashboard. Never includes password hashes. Not RLS-scoped — only
+   * call from an admin-gated route.
+   */
+  adminListUsers() {
+    const acctOwner = new Map(); // accountId → userId
+    const acctCount = new Map(); // userId → #accounts
+    for (const a of this.accounts.values()) {
+      acctOwner.set(a.id, a.userId);
+      acctCount.set(a.userId, (acctCount.get(a.userId) || 0) + 1);
+    }
+    const tradeCount = new Map(); // userId → #trades
+    for (const t of this.trades.values()) {
+      const uid = acctOwner.get(t.accountId);
+      if (uid) tradeCount.set(uid, (tradeCount.get(uid) || 0) + 1);
+    }
+    return [...this.users.values()].map((u) => ({
+      id: u.id,
+      email: u.email,
+      createdAt: u.createdAt,
+      oauth: !u.passwordHash,
+      subscriptionStatus: u.subscriptionStatus || 'trialing',
+      trialEndsAt: u.trialEndsAt || null,
+      currentPeriodEnd: u.currentPeriodEnd || null,
+      cancelAtPeriodEnd: !!u.cancelAtPeriodEnd,
+      accountCount: acctCount.get(u.id) || 0,
+      tradeCount: tradeCount.get(u.id) || 0,
+    }));
+  }
+
   /** The user's subscription record (status + trial/period bounds). */
   getSubscription(userId) {
     const user = this.users.get(userId);

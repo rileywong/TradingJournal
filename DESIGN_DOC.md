@@ -315,6 +315,8 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 34. ✅ Advanced statistics (daily performance, Kelly, daily Sharpe, trade economics)
 35. ✅ Paywall toggle (PAYWALL_ENABLED=false → open/early-access mode)
 36. ✅ Public landing page (hero, feature grid, why-us → auth handoff)
+37. ✅ Demo mode (no-signup read-only session on realistic seeded data)
+38. ✅ Admin dashboard (site stats: users, MRR, funnel, signups — ADMIN_EMAILS-gated)
 
 ### Billing security notes
 
