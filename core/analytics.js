@@ -264,10 +264,20 @@ export function profitConcentration(trades) {
   return { topTradePct: round4(bestTrade / grossProfit), topDayPct: round4(bestDay / grossProfit) };
 }
 
+/** The biggest winners and losers by net P&L (deduped when few trades exist). */
+export function topTrades(trades, n = 5) {
+  const sorted = [...trades].filter((t) => Number.isFinite(t.netPnl)).sort((a, b) => b.netPnl - a.netPnl);
+  const best = sorted.slice(0, n);
+  const bestSet = new Set(best);
+  const worst = sorted.slice(-n).reverse().filter((t) => !bestSet.has(t));
+  return { best, worst };
+}
+
 export function buildAnalytics(trades) {
   return {
     overall: summarize(trades),
     concentration: profitConcentration(trades),
+    topTrades: topTrades(trades),
     winLoss: winLossComparison(trades),
     bySymbol: bySymbol(trades),
     bySide: bySide(trades),

@@ -82,6 +82,29 @@ function BreakdownTable({ title, rows, keyLabel, onRowClick, isRowClickable = ()
  * Reports view — TradeZella-style performance breakdowns.
  * Props: analytics (from GET /api/analytics).
  */
+function TopTradesTable({ title, rows }) {
+  return (
+    <div className="card report-card">
+      <h3>{title}</h3>
+      <table className="report-table">
+        <thead>
+          <tr><th>Symbol</th><th>Date</th><th style={{ textAlign: 'right' }}>Net P&amp;L</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((t, i) => (
+            <tr key={i}>
+              <td className="sym">{t.symbol}{t.side ? <span className="muted"> · {t.side}</span> : null}</td>
+              <td className="muted">{new Date(t.closedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+              <td style={{ textAlign: 'right' }} className={t.netPnl > 0 ? 'pos' : t.netPnl < 0 ? 'neg' : 'muted'}>{fmtMoney(t.netPnl)}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && <tr><td colSpan={3} className="muted" style={{ textAlign: 'center', padding: 16 }}>None.</td></tr>}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function StatCard({ label, value, hint, tone }) {
   return (
     <div className="metric-card" key={label}>
@@ -215,6 +238,16 @@ export default function Reports({ analytics, statistics, playbook, drawdownCurve
               Payoff ratio <strong>{fmtPf(winLoss.payoffRatio)}</strong>
               <span className="muted"> (avg win / avg loss)</span>
             </div>
+          </div>
+        </>
+      )}
+
+      {analytics.topTrades && (analytics.topTrades.best.length > 0 || analytics.topTrades.worst.length > 0) && (
+        <>
+          <div className="section-title">Biggest Wins &amp; Losses</div>
+          <div className="reports-grid">
+            <TopTradesTable title="Top winners" rows={analytics.topTrades.best} />
+            <TopTradesTable title="Top losers" rows={analytics.topTrades.worst} />
           </div>
         </>
       )}
