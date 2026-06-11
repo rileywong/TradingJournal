@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, getStoredUser, clearSession, setSession } from './api.js';
 import { PERIODS, periodRange } from '../core/period.js';
+import { buildInsights } from '../core/insights.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
 import PnlCalendar from './components/PnlCalendar.jsx';
@@ -516,6 +517,17 @@ export default function App() {
                 <div className="section-title">Performance Snapshot</div>
                 <ScoreCard score={score} />
                 <MetricsGrid metrics={metrics} />
+
+                {analytics && buildInsights(analytics).length > 0 && (
+                  <div className="insights-grid dash-insights">
+                    {buildInsights(analytics).slice(0, 3).map((i) => (
+                      <div key={i.id} className={`insight insight-${i.tone}`}>
+                        <span className="insight-dot" />
+                        <span>{i.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {!user.demo && !isAll && (
                   <>
