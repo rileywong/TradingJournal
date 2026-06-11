@@ -8,3 +8,6 @@ data/
 
 # Generated screenshot artifacts (regenerate via scripts/capture.mjs)
 shots/
+
+# Theme mockup artifacts (regenerate via scripts/mockups.mjs)
+mockups/
