@@ -5,3 +5,6 @@ dist/
 .DS_Store
 .vite/
 data/
+
+# Generated screenshot artifacts (regenerate via scripts/capture.mjs)
+shots/
