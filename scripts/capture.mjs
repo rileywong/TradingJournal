@@ -192,13 +192,34 @@ const smoothScroll = (toY) => new Promise((res) => {
   const t = setInterval(() => { y += step; window.scrollTo(0, Math.max(0, y));
     if ((dir > 0 && y >= toY) || (dir < 0 && y <= 0)) { clearInterval(t); res(); } }, 16);
 });
+// A synthetic pointer so clips read as "someone using the app".
+const cursorScript = () => {
+  const add = () => {
+    if (document.getElementById('__cur') || !document.body) return;
+    const c = document.createElement('div');
+    c.id = '__cur';
+    c.style.cssText = 'position:fixed;left:0;top:0;z-index:99999;pointer-events:none;will-change:transform;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))';
+    c.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24"><path d="M4 2l6 16 2.3-6.5L19 9z" fill="#16241c" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+    document.body.appendChild(c);
+  };
+  window.addEventListener('mousemove', (e) => { add(); const c = document.getElementById('__cur'); if (c) c.style.transform = `translate(${e.clientX}px, ${e.clientY}px)`; });
+  if (document.readyState !== 'loading') add(); else document.addEventListener('DOMContentLoaded', add);
+};
+const glide = async (vp, loc) => {
+  const b = await loc.boundingBox(); if (!b) return;
+  await vp.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 22 });
+};
+const clickAt = async (vp, loc) => { await glide(vp, loc); await sleep(260); await loc.click(); };
+
 async function recordClip(name, fn) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: SHOW, size: { width: 1280, height: 800 } } });
   await ctx.addInitScript(({ token, user }) => {
     localStorage.setItem('tjs_token', token); localStorage.setItem('tjs_user', JSON.stringify(user));
   }, show);
+  await ctx.addInitScript(cursorScript);
   const vp = await ctx.newPage();
   await vp.goto(BASE + '/'); await sleep(1000);
+  await vp.mouse.move(880, 230, { steps: 8 }); await sleep(300); // reveal the cursor
   try { await fn(vp); } catch (e) { console.log('clip warn', name, e.message); }
   const video = vp.video();
   await ctx.close();
@@ -206,25 +227,25 @@ async function recordClip(name, fn) {
 }
 
 await recordClip('dashboard', async (vp) => {
-  await vp.getByRole('button', { name: 'Last 30 days' }).click(); await sleep(1100);
-  await vp.getByRole('button', { name: 'Gross', exact: true }).click(); await sleep(1100);
-  await vp.getByRole('button', { name: 'All time' }).click(); await sleep(900);
-  await vp.getByRole('button', { name: 'Net', exact: true }).click(); await sleep(900);
+  await clickAt(vp, vp.getByRole('button', { name: 'Last 30 days' })); await sleep(1000);
+  await clickAt(vp, vp.getByRole('button', { name: 'Gross', exact: true })); await sleep(1000);
+  await clickAt(vp, vp.getByRole('button', { name: 'All time' })); await sleep(800);
+  await clickAt(vp, vp.getByRole('button', { name: 'Net', exact: true })); await sleep(800);
 });
 await recordClip('reports', async (vp) => {
-  await vp.getByRole('button', { name: 'Reports', exact: true }).click(); await sleep(900);
+  await clickAt(vp, vp.getByRole('button', { name: 'Reports', exact: true })); await sleep(800);
   await vp.evaluate(smoothScroll, 1500); await sleep(900);
   await vp.evaluate(smoothScroll, 0); await sleep(500);
 });
 await recordClip('calendar', async (vp) => {
   const nav = vp.locator('.cal-nav button');
-  await sleep(700); await nav.first().click(); await sleep(1000);
-  await nav.last().click(); await sleep(800); await nav.last().click(); await sleep(900);
+  await sleep(600); await clickAt(vp, nav.first()); await sleep(900);
+  await clickAt(vp, nav.last()); await sleep(700); await clickAt(vp, nav.last()); await sleep(900);
 });
 await recordClip('journal', async (vp) => {
-  await sleep(500);
+  await sleep(400);
   const cell = vp.locator('.cal-cell.clickable').filter({ hasText: /\$/ }).first();
-  await cell.scrollIntoViewIfNeeded(); await cell.click(); await sleep(2000);
+  await cell.scrollIntoViewIfNeeded(); await clickAt(vp, cell); await sleep(2000);
 });
 
 await browser.close();
