@@ -33,9 +33,30 @@ import { devEmailProvider, renderWelcomeEmail, renderPasswordResetEmail } from '
 // Render injects RENDER_EXTERNAL_URL automatically, so APP_URL is optional there.
 const appUrl = () => process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
 
+// Tiny in-memory fixed-window rate limiter (per client IP). Single-instance
+// deployment (SQLite on a disk) makes in-memory state sufficient.
+function rateLimit({ windowMs = 15 * 60_000, max = 50 } = {}) {
+  const hits = new Map(); // ip → { count, resetAt }
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || 'global';
+    let rec = hits.get(key);
+    if (!rec || rec.resetAt <= now) { rec = { count: 0, resetAt: now + windowMs }; hits.set(key, rec); }
+    rec.count += 1;
+    if (rec.count > max) {
+      res.setHeader('Retry-After', Math.ceil((rec.resetAt - now) / 1000));
+      return res.status(429).json({ error: 'too many attempts — please try again shortly' });
+    }
+    next();
+  };
+}
+
 export function createApp(repo = new Repository(), options = {}) {
   const app = express();
+  app.set('trust proxy', 1); // behind Render's proxy → real client IP in req.ip
   app.use(cors());
+  // Throttle credential / enumeration endpoints per IP.
+  const authLimit = rateLimit(options.authRateLimit || { windowMs: 15 * 60_000, max: 50 });
   // Capture the raw body so Stripe webhook signatures can be verified over the
   // exact bytes (express.json() otherwise discards them after parsing).
   app.use(express.json({ limit: '15mb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
@@ -164,7 +185,7 @@ export function createApp(repo = new Repository(), options = {}) {
     res.status(201).json({ token, user: withAdmin(user) });
   }));
 
-  app.post('/api/auth/login', wrap((req, res) => {
+  app.post('/api/auth/login', authLimit, wrap((req, res) => {
     const { email, password } = req.body || {};
     const user = repo.authenticate(email, password);
     const token = signToken({ sub: user.id, email: user.email });
@@ -181,7 +202,7 @@ export function createApp(repo = new Repository(), options = {}) {
 
   // Request a password reset. Always 200 (never reveal whether the email exists);
   // if it does, email a one-time reset link.
-  app.post('/api/auth/forgot', wrap((req, res) => {
+  app.post('/api/auth/forgot', authLimit, wrap((req, res) => {
     const reqEmail = String((req.body || {}).email || '').trim().toLowerCase();
     const token = repo.createPasswordReset(reqEmail);
     if (token) {
@@ -192,7 +213,7 @@ export function createApp(repo = new Repository(), options = {}) {
   }));
 
   // Complete a password reset and sign the user in with a fresh token.
-  app.post('/api/auth/reset', wrap((req, res) => {
+  app.post('/api/auth/reset', authLimit, wrap((req, res) => {
     const { token, password } = req.body || {};
     const user = repo.consumePasswordReset(token, password);
     const t = signToken({ sub: user.id, email: user.email });
