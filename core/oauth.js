@@ -79,8 +79,11 @@ const APPLE = {
 function normalizeIdentity(provider, payload) {
   if (!payload.email) throw new Error('no email in token');
   // Providers send email_verified as boolean or string ("true"/"false").
+  // Fail closed: only an explicit true counts as verified. A missing/false
+  // claim must NOT be trusted — otherwise an unverified provider email could be
+  // used to link/take over an existing account with the same address.
   const ev = payload.email_verified;
-  const emailVerified = ev === true || ev === 'true' || ev === undefined;
+  const emailVerified = ev === true || ev === 'true';
   return { provider, sub: payload.sub, email: payload.email, emailVerified, name: payload.name || '' };
 }
 

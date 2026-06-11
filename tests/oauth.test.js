@@ -85,4 +85,14 @@ describe('googleVerifier', () => {
     const id = await verify(token);
     expect(id).toMatchObject({ provider: 'google', sub: 'g-9', email: 'g@b.com', emailVerified: true });
   });
+
+  it('does NOT trust a missing or false email_verified claim (fail closed)', async () => {
+    const verify = googleVerifier({ clientId: 'client-123', getKey });
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const missing = signRs256({ iss: 'https://accounts.google.com', aud: 'client-123', sub: 'g-1', email: 'm@b.com', exp });
+    expect((await verify(missing)).emailVerified).toBe(false);
+    const falseClaim = signRs256({ iss: 'https://accounts.google.com', aud: 'client-123', sub: 'g-2', email: 'f@b.com', email_verified: false, exp });
+    expect((await verify(falseClaim)).emailVerified).toBe(false);
+  });
 });
+
