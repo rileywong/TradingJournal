@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { positionSize } from '../../core/calculator.js';
+import { useEscape } from '../useEscape.js';
 
 const money = (n) => `$${(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 // Position-sizing tool: how many shares keep your loss within the risk budget,
 // plus reward:risk when a target is set. Client-only (no API).
 export default function RiskCalculator({ onClose, accountSize: initialAccount }) {
+  useEscape(onClose);
   const [accountSize, setAccountSize] = useState(initialAccount ? String(Math.round(initialAccount)) : '');
   const [riskPct, setRiskPct] = useState('1');
   const [entry, setEntry] = useState('');

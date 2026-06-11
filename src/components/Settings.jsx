@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { api, getToken } from '../api.js';
+import { useEscape } from '../useEscape.js';
 
 // Account settings: change password, export data, delete account. Opened from
 // the topbar. Self-serve data portability + deletion gated on auth only, so a
 // locked-out (lapsed) user can still leave with their data.
 export default function Settings({ user, onClose, onDeleted }) {
+  useEscape(onClose);
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
   const [pw, setPw] = useState({ state: 'idle', msg: '' });

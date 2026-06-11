@@ -3,6 +3,7 @@ import { api, getStoredUser, clearSession, setSession } from './api.js';
 import { PERIODS, periodRange, resolveRange } from '../core/period.js';
 import { dayKey } from '../core/dates.js';
 import { buildInsights } from '../core/insights.js';
+import { useEscape } from './useEscape.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
 import PnlCalendar from './components/PnlCalendar.jsx';
@@ -730,6 +731,7 @@ export default function App() {
 
 /** Create (no `account`) or edit (with `account`) an account; edit mode can delete. */
 function AccountModal({ account, onClose, onSaved, onDeleted }) {
+  useEscape(onClose);
   const editing = Boolean(account);
   const [name, setName] = useState(account?.name ?? 'Main Account');
   const [startingBalance, setStartingBalance] = useState(account?.startingBalance ?? 10000);

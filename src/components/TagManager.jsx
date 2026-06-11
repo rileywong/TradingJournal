@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api.js';
 import { distinctTags } from '../../core/filters.js';
+import { useEscape } from '../useEscape.js';
 
 /**
  * Manage an account's tags: rename or delete across all trades. Loads the full
@@ -9,6 +10,7 @@ import { distinctTags } from '../../core/filters.js';
  * Props: accountId, onClose, onChanged (called after a successful mutation).
  */
 export default function TagManager({ accountId, onClose, onChanged }) {
+  useEscape(onClose);
   const [tags, setTags] = useState(null);
   const [editing, setEditing] = useState(null); // tag being renamed
   const [draft, setDraft] = useState('');

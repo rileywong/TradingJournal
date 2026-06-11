@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DayChart from './DayChart.jsx';
 import TradesTable from './TradesTable.jsx';
+import { useEscape } from '../useEscape.js';
 
 function fmtMoney(n) {
   const sign = n < 0 ? '-' : '';
@@ -38,6 +39,7 @@ function fmtLongDate(dateKey) {
  *   onSaveNote: (date, note) => Promise     // persist the journal note
  */
 export default function DayDetail({ day, loading, onClose, onTag, onRisk, onTradeNote, onSaveNote }) {
+  useEscape(onClose);
   const stats = day?.stats;
   const net = stats?.netPnl ?? 0;
   const netClass = net > 0 ? 'pos' : net < 0 ? 'neg' : 'muted';

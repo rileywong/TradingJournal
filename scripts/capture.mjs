@@ -267,7 +267,9 @@ for (const [ph, val] of [['25000', '25000'], ['1', '1'], ['100.00', '100'], ['98
 await sleep(400);
 await verifyPage.screenshot({ path: OUT + '14-calculator.png' });
 console.log('shot: 14-calculator');
-await verifyPage.locator('.calc-modal .modal-close').click().catch(() => {});
+await verifyPage.keyboard.press('Escape');
+await sleep(300);
+console.log('ESC closes calc modal:', (await verifyPage.locator('.calc-modal').count()) === 0);
 await sleep(300);
 await verifyPage.selectOption('select[aria-label="Filter by side"]', 'SHORT').catch(() => {});
 await sleep(400);
