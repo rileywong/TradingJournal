@@ -17,12 +17,13 @@ function loadScript(src) {
   return p;
 }
 
-export default function Auth({ onAuthed, initialMode = 'login', onBack }) {
+export default function Auth({ onAuthed, initialMode = 'login', onBack, resetToken }) {
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false); // forgot-password confirmation
   const [providers, setProviders] = useState({ google: { enabled: false }, apple: { enabled: false } });
   const googleBtnRef = useRef(null);
 
@@ -84,10 +85,31 @@ export default function Auth({ onAuthed, initialMode = 'login', onBack }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (mode === 'forgot') {
+      setError('');
+      setBusy(true);
+      try { await api.forgotPassword(email); setSent(true); }
+      catch (err) { setError(err.message); }
+      finally { setBusy(false); }
+      return;
+    }
+    if (mode === 'reset') {
+      completeOauth(api.resetPassword(resetToken, password));
+      return;
+    }
     completeOauth((mode === 'login' ? api.login : api.register)(email, password));
   };
 
-  const ssoEnabled = providers.google?.enabled || providers.apple?.enabled;
+  const ssoEnabled = (providers.google?.enabled || providers.apple?.enabled) && (mode === 'login' || mode === 'register');
+  const TITLES = { login: 'Welcome back', register: 'Create your account', forgot: 'Reset your password', reset: 'Choose a new password' };
+  const SUBS = {
+    login: 'Sign in to your trading analytics dashboard.',
+    register: 'Start journaling and analyzing your trades.',
+    forgot: "Enter your email and we'll send a reset link.",
+    reset: 'Pick a new password for your account.',
+  };
+  const CTA = { login: 'Sign in', register: 'Create account', forgot: 'Send reset link', reset: 'Reset password' };
+  const goto = (m) => { setMode(m); setError(''); setSent(false); };
 
   return (
     <div className="auth-wrap">
@@ -99,13 +121,14 @@ export default function Auth({ onAuthed, initialMode = 'login', onBack }) {
           <span className="dot" />
           <span>Greenstreak</span>
         </div>
-        <h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
-        <p className="sub">
-          {mode === 'login'
-            ? 'Sign in to your trading analytics dashboard.'
-            : 'Start journaling and analyzing your trades.'}
-        </p>
+        <h1>{TITLES[mode]}</h1>
+        <p className="sub">{SUBS[mode]}</p>
         {error && <div className="banner error" style={{ marginBottom: 14 }}>{error}</div>}
+        {mode === 'forgot' && sent && (
+          <div className="banner success" style={{ marginBottom: 14 }}>
+            If an account exists for that email, a reset link is on its way.
+          </div>
+        )}
 
         {ssoEnabled && (
           <div className="sso-group">
@@ -119,41 +142,52 @@ export default function Auth({ onAuthed, initialMode = 'login', onBack }) {
           </div>
         )}
 
-        <form onSubmit={submit}>
-          <div className="field">
-            <label>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-          <div className="field">
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              required
-            />
-          </div>
-          <button className="btn-primary" type="submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}
-          </button>
-        </form>
+        {!(mode === 'forgot' && sent) && (
+          <form onSubmit={submit}>
+            {mode !== 'reset' && (
+              <div className="field">
+                <label>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            )}
+            {mode !== 'forgot' && (
+              <div className="field">
+                <div className="field-label-row">
+                  <label>{mode === 'reset' ? 'New password' : 'Password'}</label>
+                  {mode === 'login' && (
+                    <button type="button" className="auth-link" onClick={() => goto('forgot')}>Forgot password?</button>
+                  )}
+                </div>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  required
+                />
+              </div>
+            )}
+            <button className="btn-primary" type="submit" disabled={busy}>
+              {busy ? 'Please wait…' : CTA[mode]}
+            </button>
+          </form>
+        )}
         <div className="auth-switch">
-          {mode === 'login' ? "Don't have an account?" : 'Already registered?'}
-          <button
-            onClick={() => {
-              setMode(mode === 'login' ? 'register' : 'login');
-              setError('');
-            }}
-          >
-            {mode === 'login' ? 'Sign up' : 'Sign in'}
-          </button>
+          {mode === 'login' && (
+            <>Don't have an account? <button onClick={() => goto('register')}>Sign up</button></>
+          )}
+          {mode === 'register' && (
+            <>Already registered? <button onClick={() => goto('login')}>Sign in</button></>
+          )}
+          {(mode === 'forgot' || mode === 'reset') && (
+            <>Remember it? <button onClick={() => goto('login')}>Back to sign in</button></>
+          )}
         </div>
       </div>
     </div>

@@ -60,6 +60,8 @@ export const api = {
     request('/auth/apple', { method: 'POST', body: { idToken }, auth: false }),
   startDemo: () => request('/demo', { method: 'POST', auth: false }),
   joinWaitlist: (email) => request('/waitlist', { method: 'POST', body: { email }, auth: false }),
+  forgotPassword: (email) => request('/auth/forgot', { method: 'POST', body: { email }, auth: false }),
+  resetPassword: (token, password) => request('/auth/reset', { method: 'POST', body: { token, password }, auth: false }),
   billingStatus: () => request('/billing/status'),
   startCheckout: () => request('/billing/checkout', { method: 'POST' }),
   mockCompleteCheckout: () => request('/billing/mock-complete', { method: 'POST' }),

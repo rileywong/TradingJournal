@@ -18,7 +18,8 @@ import Onboarding from './components/Onboarding.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
-  const [authView, setAuthView] = useState(null); // null = landing; 'login' | 'register' = auth form
+  const [authView, setAuthView] = useState(null); // null = landing; 'login' | 'register' | 'forgot' | 'reset'
+  const [resetToken, setResetToken] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [metrics, setMetrics] = useState(null);
@@ -66,6 +67,19 @@ export default function App() {
     if (!user) return;
     refreshBilling();
   }, [user, refreshBilling]);
+
+  // Deep-link from a password-reset email (/?reset=<token>) opens the reset form.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('reset');
+    if (t) { setResetToken(t); setAuthView('reset'); }
+  }, []);
+
+  // After auth succeeds, drop any ?reset=… so a refresh doesn't reopen the form.
+  const onAuthed = useCallback((u) => {
+    setUser(u);
+    setResetToken(null);
+    if (window.location.search) window.history.replaceState({}, '', window.location.pathname);
+  }, []);
 
   // Load accounts once entitled (data routes 402 when the trial has lapsed).
   // With the paywall disabled, entitlement is irrelevant — everyone loads.
@@ -268,7 +282,14 @@ export default function App() {
         />
       );
     }
-    return <Auth initialMode={authView} onAuthed={setUser} onBack={() => setAuthView(null)} />;
+    return (
+      <Auth
+        initialMode={authView}
+        resetToken={resetToken}
+        onAuthed={onAuthed}
+        onBack={() => { setAuthView(null); setResetToken(null); }}
+      />
+    );
   }
 
   // Gate the whole app on entitlement. While billing is loading, render nothing

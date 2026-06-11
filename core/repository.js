@@ -13,6 +13,10 @@ function uuid() {
   return crypto.randomUUID();
 }
 
+function sha256(s) {
+  return crypto.createHash('sha256').update(String(s)).digest('hex');
+}
+
 export class Repository {
   constructor() {
     this.users = new Map(); // id → user
@@ -28,6 +32,7 @@ export class Repository {
     this.oauthIdentities = new Map(); // `${provider}:${sub}` → userId
     this.webhookEvents = new Set(); // processed billing webhook event ids (idempotency)
     this.waitlist = new Map(); // email → { email, createdAt } (marketing list)
+    this.passwordResets = new Map(); // tokenHash → { userId, expiresAt }
   }
 
   /**
@@ -118,6 +123,33 @@ export class Repository {
   getUser(userId) {
     const user = this.users.get(userId);
     return user ? this.publicUser(user) : null;
+  }
+
+  // --- password reset ----------------------------------------------------
+  /** Issue a reset token for `email`. Returns the (plaintext) token, or null if
+   *  no such user — the caller still responds 200 to avoid leaking existence. */
+  createPasswordReset(email, ttlMs = 3600_000) {
+    const normEmail = String(email || '').trim().toLowerCase();
+    const userId = this.usersByEmail.get(normEmail);
+    if (!userId) return null;
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = sha256(token);
+    this.passwordResets.set(tokenHash, { userId, expiresAt: Date.now() + ttlMs });
+    return token;
+  }
+
+  /** Validate the token, set the new password, and invalidate the token. */
+  consumePasswordReset(token, newPassword) {
+    const rec = this.passwordResets.get(sha256(String(token || '')));
+    if (!rec || rec.expiresAt < Date.now()) throw new RepoError('invalid or expired reset token', 400);
+    if (!newPassword || String(newPassword).length < 6) {
+      throw new RepoError('password must be at least 6 characters', 400);
+    }
+    const user = this.users.get(rec.userId);
+    if (!user) throw new RepoError('invalid or expired reset token', 400);
+    user.passwordHash = hashPassword(newPassword);
+    this.passwordResets.delete(sha256(String(token)));
+    return this.publicUser(user);
   }
 
   publicUser(user) {

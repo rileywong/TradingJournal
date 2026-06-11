@@ -17,6 +17,8 @@ import { newTrial } from './billing.js';
 const { DatabaseSync } = createRequire(import.meta.url)('node:sqlite');
 
 const uuid = () => crypto.randomUUID();
+const randomBytes = (n) => crypto.randomBytes(n);
+const sha256 = (s) => crypto.createHash('sha256').update(String(s)).digest('hex');
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 function tradeSignature(t) {
@@ -67,6 +69,9 @@ export class SqliteRepository {
       );
       CREATE TABLE IF NOT EXISTS waitlist (
         email TEXT PRIMARY KEY, createdAt TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS password_resets (
+        tokenHash TEXT PRIMARY KEY, userId TEXT NOT NULL, expiresAt INTEGER NOT NULL
       );
     `);
     // Additive migration: ensure `setup` exists on databases created before it.
@@ -184,6 +189,31 @@ export class SqliteRepository {
 
   listWaitlist() {
     return this.db.prepare('SELECT email, createdAt FROM waitlist ORDER BY createdAt DESC').all();
+  }
+
+  // --- password reset ----------------------------------------------------
+  createPasswordReset(email, ttlMs = 3600_000) {
+    const normEmail = String(email || '').trim().toLowerCase();
+    const row = this.db.prepare('SELECT id FROM users WHERE email = ?').get(normEmail);
+    if (!row) return null;
+    const token = randomBytes(32).toString('hex');
+    this.db.prepare('INSERT OR REPLACE INTO password_resets (tokenHash, userId, expiresAt) VALUES (?, ?, ?)')
+      .run(sha256(token), row.id, Date.now() + ttlMs);
+    return token;
+  }
+
+  consumePasswordReset(token, newPassword) {
+    const hash = sha256(String(token || ''));
+    const rec = this.db.prepare('SELECT userId, expiresAt FROM password_resets WHERE tokenHash = ?').get(hash);
+    if (!rec || rec.expiresAt < Date.now()) throw new RepoError('invalid or expired reset token', 400);
+    if (!newPassword || String(newPassword).length < 6) {
+      throw new RepoError('password must be at least 6 characters', 400);
+    }
+    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(rec.userId);
+    if (!user) throw new RepoError('invalid or expired reset token', 400);
+    this.db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(hashPassword(newPassword), rec.userId);
+    this.db.prepare('DELETE FROM password_resets WHERE tokenHash = ?').run(hash);
+    return this.publicUser(user);
   }
 
   #insertUser(user) {

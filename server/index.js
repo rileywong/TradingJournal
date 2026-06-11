@@ -27,7 +27,7 @@ import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
-import { devEmailProvider, renderWelcomeEmail } from '../core/email.js';
+import { devEmailProvider, renderWelcomeEmail, renderPasswordResetEmail } from '../core/email.js';
 
 // Public base URL for provider redirects (Stripe checkout/portal return links).
 // Render injects RENDER_EXTERNAL_URL automatically, so APP_URL is optional there.
@@ -177,6 +177,26 @@ export function createApp(repo = new Repository(), options = {}) {
   app.post('/api/waitlist', wrap((req, res) => {
     repo.addToWaitlist((req.body || {}).email);
     res.status(201).json({ ok: true });
+  }));
+
+  // Request a password reset. Always 200 (never reveal whether the email exists);
+  // if it does, email a one-time reset link.
+  app.post('/api/auth/forgot', wrap((req, res) => {
+    const reqEmail = String((req.body || {}).email || '').trim().toLowerCase();
+    const token = repo.createPasswordReset(reqEmail);
+    if (token) {
+      const base = appUrl() || '';
+      sendEmail(renderPasswordResetEmail({ email: reqEmail, resetUrl: `${base}/?reset=${token}` }));
+    }
+    res.json({ ok: true });
+  }));
+
+  // Complete a password reset and sign the user in with a fresh token.
+  app.post('/api/auth/reset', wrap((req, res) => {
+    const { token, password } = req.body || {};
+    const user = repo.consumePasswordReset(token, password);
+    const t = signToken({ sub: user.id, email: user.email });
+    res.json({ token: t, user: withAdmin(user) });
   }));
 
   // Idempotently ensure a read-only demo user seeded with realistic sample

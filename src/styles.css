@@ -267,6 +267,10 @@ tbody tr:hover { background: var(--surface-2); }
 .import-result { font-size: 13px; }
 .banner { padding: 10px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; }
 .banner.error { background: var(--negative-bg); color: var(--negative); }
+.banner.success { background: var(--accent-bg); color: var(--accent); }
+.field-label-row { display: flex; align-items: baseline; justify-content: space-between; }
+.auth-link { background: none; border: none; color: var(--accent); font-weight: 700; font-size: 12px; padding: 0; cursor: pointer; }
+.auth-link:hover { text-decoration: underline; }
 .banner.ok { background: var(--positive-bg); color: #0f8a63; }
 
 /* ---------- auth ---------- */
