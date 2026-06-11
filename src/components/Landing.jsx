@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { api } from '../api.js';
 import FeatureTour from './FeatureTour.jsx';
 
 // Public marketing page shown to logged-out visitors. Positioning: serious,
@@ -86,12 +87,28 @@ function useReveal() {
 
 export default function Landing({ onGetStarted, onSignIn, onDemo }) {
   const [demoBusy, setDemoBusy] = React.useState(false);
+  const [wlEmail, setWlEmail] = React.useState('');
+  const [wlState, setWlState] = React.useState('idle'); // idle | busy | done | error
+  const [wlError, setWlError] = React.useState('');
   useReveal();
 
   const viewDemo = async () => {
     if (!onDemo) return;
     setDemoBusy(true);
     try { await onDemo(); } catch { setDemoBusy(false); }
+  };
+
+  const joinWaitlist = async (e) => {
+    e.preventDefault();
+    setWlState('busy');
+    setWlError('');
+    try {
+      await api.joinWaitlist(wlEmail);
+      setWlState('done');
+    } catch (err) {
+      setWlError(err.message || 'Something went wrong — try again.');
+      setWlState('error');
+    }
   };
 
   return (
@@ -260,6 +277,33 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
             </button>
           )}
         </div>
+      </section>
+
+      <section className="landing-waitlist reveal">
+        <div className="landing-waitlist-inner">
+          <div className="landing-waitlist-copy">
+            <h3>Not ready to dive in?</h3>
+            <p>Get the occasional product update — new features, broker support, and trading tips. No spam, unsubscribe anytime.</p>
+          </div>
+          {wlState === 'done' ? (
+            <p className="waitlist-done">Thanks — you’re on the list. ✓</p>
+          ) : (
+            <form className="waitlist-form" onSubmit={joinWaitlist}>
+              <input
+                type="email"
+                placeholder="you@example.com"
+                value={wlEmail}
+                onChange={(e) => setWlEmail(e.target.value)}
+                aria-label="Email address"
+                required
+              />
+              <button className="btn-primary" type="submit" disabled={wlState === 'busy'}>
+                {wlState === 'busy' ? 'Adding…' : 'Keep me posted'}
+              </button>
+            </form>
+          )}
+        </div>
+        {wlState === 'error' && <p className="waitlist-error">{wlError}</p>}
       </section>
 
       <footer className="landing-footer">

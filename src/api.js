@@ -59,6 +59,7 @@ export const api = {
   appleLogin: (idToken) =>
     request('/auth/apple', { method: 'POST', body: { idToken }, auth: false }),
   startDemo: () => request('/demo', { method: 'POST', auth: false }),
+  joinWaitlist: (email) => request('/waitlist', { method: 'POST', body: { email }, auth: false }),
   billingStatus: () => request('/billing/status'),
   startCheckout: () => request('/billing/checkout', { method: 'POST' }),
   mockCompleteCheckout: () => request('/billing/mock-complete', { method: 'POST' }),

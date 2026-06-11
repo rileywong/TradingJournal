@@ -160,6 +160,14 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ token, user: withAdmin(user) });
   }));
 
+  // Public marketing waitlist (product updates for visitors not ready to sign
+  // up). Idempotent: re-adding the same email is a no-op. Never reveals whether
+  // the email was already present.
+  app.post('/api/waitlist', wrap((req, res) => {
+    repo.addToWaitlist((req.body || {}).email);
+    res.status(201).json({ ok: true });
+  }));
+
   // Idempotently ensure a read-only demo user seeded with realistic sample
   // trades (via the same parse→match→store path as a real import). Reused across
   // visitors; only seeds the first time (when the demo account has no data).
@@ -246,12 +254,13 @@ export function createApp(repo = new Repository(), options = {}) {
     }, now);
 
     const funnel = { active: 0, trialing: 0, past_due: 0, trial_expired: 0, expired: 0, none: 0 };
-    let usersWithData = 0, totalAccounts = 0, totalTrades = 0;
+    let usersWithData = 0, createdAccount = 0, totalAccounts = 0, totalTrades = 0;
     let today = 0, last7 = 0, last30 = 0;
     const dayBuckets = new Map(); // yyyy-mm-dd → signups
 
     for (const u of users) {
       funnel[entOf(u).status] = (funnel[entOf(u).status] || 0) + 1;
+      if (u.accountCount > 0) createdAccount += 1;
       if (u.tradeCount > 0) usersWithData += 1;
       totalAccounts += u.accountCount;
       totalTrades += u.tradeCount;
@@ -274,6 +283,27 @@ export function createApp(repo = new Repository(), options = {}) {
 
     const payingUsers = funnel.active;
     const lapsed = funnel.trial_expired + funnel.expired;
+
+    // Acquisition funnel: each stage is a milestone a signed-up user reached, so
+    // the admin can see where people drop off on the way to converting. `pctOfTop`
+    // is share of all signups; `pctOfPrev` is the step-to-step conversion.
+    const rawStages = [
+      { key: 'signed_up', label: 'Signed up', count: users.length },
+      { key: 'created_account', label: 'Created an account', count: createdAccount },
+      { key: 'imported', label: 'Imported trades', count: usersWithData },
+      { key: 'subscribed', label: 'Subscribed', count: payingUsers },
+    ];
+    const top = users.length || 1;
+    const funnelStages = rawStages.map((s, i) => {
+      const prev = i === 0 ? s.count : rawStages[i - 1].count;
+      return {
+        ...s,
+        pctOfTop: users.length ? s.count / top : 0,
+        pctOfPrev: prev ? s.count / prev : null,
+        droppedFromPrev: i === 0 ? 0 : Math.max(0, rawStages[i - 1].count - s.count),
+      };
+    });
+
     const recentSignups = [...users]
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
       .slice(0, 12)
@@ -298,6 +328,8 @@ export function createApp(repo = new Repository(), options = {}) {
       // Trial→paid conversion among users who've reached a decision point.
       conversion: { paid: payingUsers, lapsed, rate: payingUsers + lapsed > 0 ? payingUsers / (payingUsers + lapsed) : null },
       engagement: { usersWithData, totalAccounts, totalTrades },
+      funnelStages,
+      waitlistCount: repo.countWaitlist(),
       signupSeries,
       recentSignups,
       generatedAt: new Date(now).toISOString(),

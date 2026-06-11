@@ -42,7 +42,7 @@ export default function AdminDashboard({ onBack }) {
   }
   if (!stats) return <div className="container"><div className="empty-state">Loading site stats…</div></div>;
 
-  const { totalUsers, signups, funnel, revenue, conversion, engagement, signupSeries, recentSignups, generatedAt } = stats;
+  const { totalUsers, signups, funnel, revenue, conversion, engagement, funnelStages = [], waitlistCount = 0, signupSeries, recentSignups, generatedAt } = stats;
   const maxDay = Math.max(1, ...signupSeries.map((d) => d.count));
 
   return (
@@ -61,7 +61,34 @@ export default function AdminDashboard({ onBack }) {
         <Kpi label="MRR" value={money(revenue.mrr)} sub={`${money(revenue.arr)} ARR`} accent />
         <Kpi label="Active trials" value={funnel.trialing.toLocaleString()} sub={`${funnel.past_due} in payment grace`} />
         <Kpi label="Activated users" value={engagement.usersWithData.toLocaleString()} sub="imported ≥ 1 trade" />
-        <Kpi label="Total trades" value={engagement.totalTrades.toLocaleString()} sub={`${engagement.totalAccounts} accounts`} />
+        <Kpi label="Waitlist" value={waitlistCount.toLocaleString()} sub="interested · not signed up" />
+      </div>
+
+      <div className="section-title">Acquisition funnel</div>
+      <div className="card admin-panel">
+        <div className="afunnel">
+          {funnelStages.map((s, i) => (
+            <div className="afunnel-row" key={s.key}>
+              <div className="afunnel-head">
+                <span className="afunnel-label">{s.label}</span>
+                <span className="afunnel-count">
+                  {s.count.toLocaleString()}
+                  <span className="afunnel-pct">{pct(s.pctOfTop)} of signups</span>
+                </span>
+              </div>
+              <div className="afunnel-track">
+                <span style={{ width: `${Math.max(2, Math.round(s.pctOfTop * 100))}%` }} />
+              </div>
+              {i > 0 && (
+                <div className="afunnel-drop">
+                  {s.droppedFromPrev > 0
+                    ? `↓ ${s.droppedFromPrev.toLocaleString()} dropped off (${pct(s.pctOfPrev)} continued)`
+                    : `↓ ${pct(s.pctOfPrev)} continued`}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="section-title">New signups (last 30 days)</div>

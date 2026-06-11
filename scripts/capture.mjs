@@ -8,7 +8,7 @@ import { demoCsv } from '../core/demo-data.js';
 const PORT = 4137;
 const BASE = `http://localhost:${PORT}`;
 const OUT = new URL('../shots/', import.meta.url).pathname;
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, renameSync } from 'node:fs';
 mkdirSync(OUT, { recursive: true });
 
 const repo = new Repository();
@@ -182,6 +182,50 @@ await showShot('reports');
 await showPage.getByRole('button', { name: 'Dashboard', exact: true }).click(); await sleep(700);
 const showCell = showPage.locator('.cal-cell.clickable').filter({ hasText: /\$/ }).first();
 if (await showCell.count()) { await showCell.click(); await sleep(700); await showShot('journal', '.modal.day-detail'); }
+
+// ---- animated tour clips (webm) → public/showcase/<name>.webm ----
+// Each clip records a fresh context (session injected before load) doing a short
+// interaction, so the landing tour can show the app in motion. The matching .png
+// stays as the <video> poster / fallback.
+const smoothScroll = (toY) => new Promise((res) => {
+  let y = window.scrollY; const dir = toY > y ? 1 : -1; const step = 16 * dir;
+  const t = setInterval(() => { y += step; window.scrollTo(0, Math.max(0, y));
+    if ((dir > 0 && y >= toY) || (dir < 0 && y <= 0)) { clearInterval(t); res(); } }, 16);
+});
+async function recordClip(name, fn) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: SHOW, size: { width: 1280, height: 800 } } });
+  await ctx.addInitScript(({ token, user }) => {
+    localStorage.setItem('tjs_token', token); localStorage.setItem('tjs_user', JSON.stringify(user));
+  }, show);
+  const vp = await ctx.newPage();
+  await vp.goto(BASE + '/'); await sleep(1000);
+  try { await fn(vp); } catch (e) { console.log('clip warn', name, e.message); }
+  const video = vp.video();
+  await ctx.close();
+  if (video) { renameSync(await video.path(), SHOW + name + '.webm'); console.log('clip:', name); }
+}
+
+await recordClip('dashboard', async (vp) => {
+  await vp.getByRole('button', { name: 'Last 30 days' }).click(); await sleep(1100);
+  await vp.getByRole('button', { name: 'Gross', exact: true }).click(); await sleep(1100);
+  await vp.getByRole('button', { name: 'All time' }).click(); await sleep(900);
+  await vp.getByRole('button', { name: 'Net', exact: true }).click(); await sleep(900);
+});
+await recordClip('reports', async (vp) => {
+  await vp.getByRole('button', { name: 'Reports', exact: true }).click(); await sleep(900);
+  await vp.evaluate(smoothScroll, 1500); await sleep(900);
+  await vp.evaluate(smoothScroll, 0); await sleep(500);
+});
+await recordClip('calendar', async (vp) => {
+  const nav = vp.locator('.cal-nav button');
+  await sleep(700); await nav.first().click(); await sleep(1000);
+  await nav.last().click(); await sleep(800); await nav.last().click(); await sleep(900);
+});
+await recordClip('journal', async (vp) => {
+  await sleep(500);
+  const cell = vp.locator('.cal-cell.clickable').filter({ hasText: /\$/ }).first();
+  await cell.scrollIntoViewIfNeeded(); await cell.click(); await sleep(2000);
+});
 
 await browser.close();
 server.close();

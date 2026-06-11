@@ -317,6 +317,9 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 36. ✅ Public landing page (hero, feature grid, why-us → auth handoff)
 37. ✅ Demo mode (no-signup read-only session on realistic seeded data)
 38. ✅ Admin dashboard (site stats: users, MRR, funnel, signups — ADMIN_EMAILS-gated)
+39. ✅ Onboarding guide + landing product tour (video clips w/ screenshot fallback)
+40. ✅ Marketing waitlist (public capture; inline, no popups)
+41. ✅ Admin acquisition funnel (signup → account → import → subscribe drop-off)
 
 ### Billing security notes
 

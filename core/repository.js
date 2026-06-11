@@ -27,6 +27,7 @@ export class Repository {
     this.tradeSetups = new Map(); // `${accountId}::${signature}` → setup (durable)
     this.oauthIdentities = new Map(); // `${provider}:${sub}` → userId
     this.webhookEvents = new Set(); // processed billing webhook event ids (idempotency)
+    this.waitlist = new Map(); // email → { email, createdAt } (marketing list)
   }
 
   /**
@@ -153,6 +154,20 @@ export class Repository {
       accountCount: acctCount.get(u.id) || 0,
       tradeCount: tradeCount.get(u.id) || 0,
     }));
+  }
+
+  // --- waitlist (marketing list; public add, admin read) -------------------
+  addToWaitlist(email) {
+    const e = String(email || '').trim().toLowerCase();
+    if (!e || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new RepoError('invalid email', 400);
+    if (!this.waitlist.has(e)) this.waitlist.set(e, { email: e, createdAt: new Date().toISOString() });
+    return { email: e };
+  }
+
+  countWaitlist() { return this.waitlist.size; }
+
+  listWaitlist() {
+    return [...this.waitlist.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   /** The user's subscription record (status + trial/period bounds). */

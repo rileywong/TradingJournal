@@ -65,6 +65,9 @@ export class SqliteRepository {
       CREATE TABLE IF NOT EXISTS webhook_events (
         id TEXT PRIMARY KEY, processedAt TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS waitlist (
+        email TEXT PRIMARY KEY, createdAt TEXT NOT NULL
+      );
     `);
     // Additive migration: ensure `setup` exists on databases created before it.
     const attrCols = this.db.prepare('PRAGMA table_info(trade_attrs)').all().map((c) => c.name);
@@ -164,6 +167,23 @@ export class SqliteRepository {
       accountCount: u.accountCount || 0,
       tradeCount: u.tradeCount || 0,
     }));
+  }
+
+  // --- waitlist (marketing list; public add, admin read) -------------------
+  addToWaitlist(email) {
+    const e = String(email || '').trim().toLowerCase();
+    if (!e || !EMAIL_RE.test(e)) throw new RepoError('invalid email', 400);
+    this.db.prepare('INSERT OR IGNORE INTO waitlist (email, createdAt) VALUES (?, ?)')
+      .run(e, new Date().toISOString());
+    return { email: e };
+  }
+
+  countWaitlist() {
+    return this.db.prepare('SELECT COUNT(*) AS c FROM waitlist').get().c;
+  }
+
+  listWaitlist() {
+    return this.db.prepare('SELECT email, createdAt FROM waitlist ORDER BY createdAt DESC').all();
   }
 
   #insertUser(user) {
