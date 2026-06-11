@@ -5,7 +5,7 @@
 // user's subscription record and the current time, so it's trivially testable
 // and identical on server (gating) and client (paywall banner).
 
-export const TRIAL_DAYS = 7;
+export const TRIAL_DAYS = 14;
 // Dunning grace: after a renewal payment fails (Stripe → past_due) we keep
 // access for this long so the user can fix their card before being locked out.
 export const GRACE_DAYS = 7;

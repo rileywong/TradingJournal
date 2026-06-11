@@ -1,0 +1,45 @@
+# Render Blueprint — deploys Greenstreak as a single web service.
+# Create the service from the Render dashboard → "New +" → "Blueprint", point it
+# at this repo, then fill in the `sync: false` secrets (Stripe / OAuth) below.
+#
+# NOTE: the persistent disk is REQUIRED — Greenstreak stores data in SQLite, and
+# without a mounted disk every deploy/restart would wipe all users and trades.
+# Disks require a paid instance type (Free plan has an ephemeral filesystem).
+services:
+  - type: web
+    name: greenstreak
+    runtime: node
+    plan: starter            # minimum plan that supports a persistent disk
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    disk:
+      name: greenstreak-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"             # node:sqlite requires Node 22+
+      - key: NODE_ENV
+        value: production
+      - key: DB_PATH
+        value: /var/data/trade.db
+      - key: PAYWALL_ENABLED
+        value: "true"           # set "false" to launch in open/early-access mode
+      - key: TJS_SECRET
+        generateValue: true     # Render generates a strong random signing secret
+      # ── Secrets to fill in from the Render dashboard (kept out of git) ──
+      - key: APP_URL
+        sync: false             # optional on Render (RENDER_EXTERNAL_URL is used as fallback)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false             # the $10/mo recurring Price you create in Stripe
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false             # signing secret of your /api/billing/webhook endpoint
+      - key: GOOGLE_CLIENT_ID
+        sync: false             # optional — enables "Sign in with Google"
+      - key: APPLE_CLIENT_ID
+        sync: false             # optional — enables "Sign in with Apple"

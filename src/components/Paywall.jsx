@@ -49,7 +49,7 @@ export default function Paywall({ billing, onActivated, onLogout }) {
         <p className="sub">Subscribe to keep analyzing your trades. Cancel anytime.</p>
 
         <div className="price-tag">
-          <span className="price-amount">$19</span>
+          <span className="price-amount">$10</span>
           <span className="price-period">/ month</span>
         </div>
 

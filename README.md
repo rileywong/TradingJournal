@@ -65,8 +65,8 @@ institutional-grade performance metrics on a professional dashboard.
   re-imports.
 - **Setup playbook** — assign a strategy to each trade and see per-setup win
   rate, profit factor, expectancy, and average R; filter the log by setup.
-- **Trial & paywall** — every account starts a 7-day free trial; afterwards a
-  subscription is required (data routes return `402`, the UI shows a paywall).
+- **Trial & paywall** — every account starts a 14-day free trial; afterwards a
+  $10/month subscription is required (data routes return `402`, the UI shows a paywall).
   Billing is provider-pluggable: a dev provider completes checkout locally, and a
   built-in **Stripe** provider (dependency-free REST + HMAC webhook signature
   verification) activates by setting `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`,
@@ -161,12 +161,34 @@ Environment variables:
 | `PAYWALL_ENABLED` | `false` to launch in open/early-access mode (no gate); omit/`true` to enforce the trial + subscription paywall. |
 | `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | Enable Google / Apple sign-in (optional). |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Enable live Stripe billing (optional; point the webhook at `POST /api/billing/webhook`). |
-| `APP_URL` | Public base URL, used for billing redirect targets. |
+| `APP_URL` | Public base URL, used for billing redirect targets. Optional on Render (falls back to `RENDER_EXTERNAL_URL`). |
 
-**Early-access launch (attract users first):** set `DB_PATH` to a persistent
-volume, `TJS_SECRET` to a secret, and `PAYWALL_ENABLED=false`. Login + storage
-work; the paywall stays dormant until you set `PAYWALL_ENABLED=true` (and wire
-Stripe) to start charging — no code changes needed.
+In production (`NODE_ENV=production`) the server **refuses to boot** with the
+default `TJS_SECRET`, so a forgeable-token deploy can't happen by accident.
+
+### Deploy to Render (recommended)
+
+A [`render.yaml`](./render.yaml) Blueprint is included. From the Render
+dashboard: **New + → Blueprint → pick this repo**. It provisions a Node web
+service (Node 22), a **1 GB persistent disk** mounted at `/var/data` for the
+SQLite database (required — without it every deploy wipes your data), and
+auto-generates `TJS_SECRET`. Then:
+
+1. Create a **$10/month recurring Price** in Stripe and copy its price ID.
+2. In the Render service's **Environment** tab, fill in the `sync: false`
+   secrets: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`
+   (and optionally `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID`).
+3. In Stripe, add a webhook endpoint pointing at
+   `https://<your-app>.onrender.com/api/billing/webhook` and paste its signing
+   secret into `STRIPE_WEBHOOK_SECRET`.
+
+The persistent disk pins the service to a single instance (SQLite can't scale
+horizontally). That's plenty for launch; migrating to Postgres later needs an
+async pass on the repository interface (see DESIGN_DOC).
+
+**Early-access launch (attract users first):** set `PAYWALL_ENABLED=false`.
+Login + storage work; the paywall stays dormant until you flip it back to
+`true` to start charging — no code changes needed.
 
 ## Layout
 

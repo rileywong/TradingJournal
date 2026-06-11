@@ -306,7 +306,7 @@ Score → grade: `A+ ≥90`, `A ≥80`, `B ≥70`, `C ≥60`, `D ≥50`, else `F
 25. ✅ Options & futures support (contract multipliers, OCC parsing)
 26. ✅ Setup playbook (per-strategy expectancy / R analytics)
 27. ✅ Sign in with Google / Apple (OIDC ID-token verification, account linking)
-28. ✅ 7-day trial + paywall gating (provider-pluggable billing)
+28. ✅ 14-day trial + $10/mo paywall gating (provider-pluggable billing)
 29. ✅ Stripe billing provider (REST checkout + signed-webhook subscription sync)
 30. ✅ Stripe billing portal (self-serve manage/cancel for active subscribers)
 31. ✅ Dunning grace window (past_due keeps soft access + update-payment banner)

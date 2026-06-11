@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Lightweight TradeZella-style trading journal & analytics platform (Light Theme).",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "node server/index.js",

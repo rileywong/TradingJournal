@@ -28,6 +28,10 @@ import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
 
+// Public base URL for provider redirects (Stripe checkout/portal return links).
+// Render injects RENDER_EXTERNAL_URL automatically, so APP_URL is optional there.
+const appUrl = () => process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
+
 export function createApp(repo = new Repository(), options = {}) {
   const app = express();
   app.use(cors());
@@ -225,7 +229,7 @@ export function createApp(repo = new Repository(), options = {}) {
       stripeCustomerId: sub.stripeCustomerId,
       // Prefer the server-configured app URL over the client-supplied Origin
       // header so redirect targets aren't attacker-influenced.
-      origin: process.env.APP_URL || req.headers.origin || '',
+      origin: appUrl() || req.headers.origin || '',
     });
     res.json(session);
   }));
@@ -239,7 +243,7 @@ export function createApp(repo = new Repository(), options = {}) {
     if (!sub.stripeCustomerId) return res.status(404).json({ error: 'no subscription to manage' });
     const session = await billing.createPortal(req.userId, {
       stripeCustomerId: sub.stripeCustomerId,
-      origin: process.env.APP_URL || req.headers.origin || '',
+      origin: appUrl() || req.headers.origin || '',
     });
     res.json(session);
   }));
@@ -514,6 +518,18 @@ const isMain =
   process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const PORT = process.env.PORT || 4000;
+
+  // Auth tokens are HMAC-signed with TJS_SECRET. The built-in default is only
+  // safe for local dev — with it, anyone could forge a session token. Refuse to
+  // boot in production (or with the paywall enforced) unless a real secret is set.
+  const secretIsDefault = !process.env.TJS_SECRET || process.env.TJS_SECRET === 'dev-secret-change-me';
+  const isProd = process.env.NODE_ENV === 'production';
+  const paywallOn = String(process.env.PAYWALL_ENABLED ?? 'true').toLowerCase() !== 'false';
+  if (secretIsDefault && (isProd || paywallOn)) {
+    const msg = 'TJS_SECRET is unset or the insecure default. Set TJS_SECRET to a long random string (e.g. `openssl rand -hex 32`) before serving real users — auth tokens are forgeable otherwise.';
+    if (isProd) { console.error(`✖ ${msg}`); process.exit(1); }
+    console.warn(`⚠  ${msg}`);
+  }
   // Persist to SQLite by default so data survives restarts; DB_PATH=:memory:
   // gives an ephemeral store. Tests inject the in-memory Repository instead.
   const { SqliteRepository } = await import('../core/sqlite-repository.js');
@@ -541,7 +557,7 @@ if (isMain) {
       secretKey: process.env.STRIPE_SECRET_KEY,
       priceId: process.env.STRIPE_PRICE_ID,
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
-      appUrl: process.env.APP_URL || '',
+      appUrl: appUrl(),
     });
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
       console.warn('⚠  STRIPE_WEBHOOK_SECRET is not set — webhook signature checks will reject every event, so subscriptions will never activate. Set it to the signing secret of your Stripe webhook endpoint.');
