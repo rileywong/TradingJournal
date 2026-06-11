@@ -191,6 +191,25 @@ export class SqliteRepository {
     return this.db.prepare('SELECT email, createdAt FROM waitlist ORDER BY createdAt DESC').all();
   }
 
+  deleteUser(userId) {
+    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user) throw new RepoError('unauthorized', 401);
+    for (const a of this.listAccounts(userId)) this.deleteAccount(userId, a.id);
+    this.db.prepare('DELETE FROM oauth_identities WHERE userId = ?').run(userId);
+    this.db.prepare('DELETE FROM password_resets WHERE userId = ?').run(userId);
+    this.db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  }
+
+  changePassword(userId, currentPassword, newPassword) {
+    const user = this.db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+    if (!user) throw new RepoError('unauthorized', 401);
+    if (!user.passwordHash) throw new RepoError('this account signs in with Google/Apple', 400);
+    if (!verifyPassword(currentPassword, user.passwordHash)) throw new RepoError('current password is incorrect', 400);
+    if (!newPassword || String(newPassword).length < 6) throw new RepoError('password must be at least 6 characters', 400);
+    this.db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(hashPassword(newPassword), userId);
+    return this.publicUser(user);
+  }
+
   // --- password reset ----------------------------------------------------
   createPasswordReset(email, ttlMs = 3600_000) {
     const normEmail = String(email || '').trim().toLowerCase();

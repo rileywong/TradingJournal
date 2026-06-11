@@ -125,6 +125,28 @@ export class Repository {
     return user ? this.publicUser(user) : null;
   }
 
+  /** Delete a user and ALL their data (accounts cascade to trades/notes/tags). */
+  deleteUser(userId) {
+    const user = this.users.get(userId);
+    if (!user) throw new RepoError('unauthorized', 401);
+    for (const a of this.listAccounts(userId)) this.deleteAccount(userId, a.id);
+    this.users.delete(userId);
+    this.usersByEmail.delete(user.email);
+    for (const [k, uid] of this.oauthIdentities) if (uid === userId) this.oauthIdentities.delete(k);
+    for (const [k, rec] of this.passwordResets) if (rec.userId === userId) this.passwordResets.delete(k);
+  }
+
+  /** Change a logged-in user's password after verifying the current one. */
+  changePassword(userId, currentPassword, newPassword) {
+    const user = this.users.get(userId);
+    if (!user) throw new RepoError('unauthorized', 401);
+    if (!user.passwordHash) throw new RepoError('this account signs in with Google/Apple', 400);
+    if (!verifyPassword(currentPassword, user.passwordHash)) throw new RepoError('current password is incorrect', 400);
+    if (!newPassword || String(newPassword).length < 6) throw new RepoError('password must be at least 6 characters', 400);
+    user.passwordHash = hashPassword(newPassword);
+    return this.publicUser(user);
+  }
+
   // --- password reset ----------------------------------------------------
   /** Issue a reset token for `email`. Returns the (plaintext) token, or null if
    *  no such user — the caller still responds 200 to avoid leaking existence. */

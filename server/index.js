@@ -199,6 +199,31 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ token: t, user: withAdmin(user) });
   }));
 
+  // Change password (logged in). Verifies the current password first.
+  app.post('/api/auth/change-password', auth, blockDemoWrites, wrap((req, res) => {
+    const { currentPassword, newPassword } = req.body || {};
+    repo.changePassword(req.userId, currentPassword, newPassword);
+    res.json({ ok: true });
+  }));
+
+  // Export all of the user's own data (portability). Gated on auth only — even a
+  // lapsed/locked-out user can take their data with them.
+  app.get('/api/me/export', auth, blockDemoWrites, wrap((req, res) => {
+    const accounts = repo.listAccounts(req.userId).map((a) => ({
+      ...a,
+      trades: repo.listTrades(req.userId, a.id),
+    }));
+    res.setHeader('Content-Disposition', 'attachment; filename="greenstreak-export.json"');
+    res.json({ exportedAt: new Date().toISOString(), user: repo.getUser(req.userId), accounts });
+  }));
+
+  // Delete the account and all data (irreversible). Auth only (a locked-out user
+  // can still leave).
+  app.delete('/api/me', auth, blockDemoWrites, wrap((req, res) => {
+    repo.deleteUser(req.userId);
+    res.json({ ok: true });
+  }));
+
   // Idempotently ensure a read-only demo user seeded with realistic sample
   // trades (via the same parse→match→store path as a real import). Reused across
   // visitors; only seeds the first time (when the demo account has no data).

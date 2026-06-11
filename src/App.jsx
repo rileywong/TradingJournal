@@ -16,6 +16,7 @@ import Landing from './components/Landing.jsx';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import Onboarding from './components/Onboarding.jsx';
 import OnboardingChecklist from './components/OnboardingChecklist.jsx';
+import Settings from './components/Settings.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -35,6 +36,7 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [adminView, setAdminView] = useState(false);
   const readFlag = (k) => { try { return localStorage.getItem(k) === '1'; } catch { return false; } };
+  const [showSettings, setShowSettings] = useState(false);
   const [onboardDismissed, setOnboardDismissed] = useState(() => readFlag('tjs_onboard_dismissed'));
   const [exploredReports, setExploredReports] = useState(() => readFlag('tjs_explored_reports'));
   const [period, setPeriod] = useState('all');
@@ -378,7 +380,9 @@ export default function App() {
               {adminView ? 'Exit admin' : 'Admin'}
             </button>
           )}
-          <span className="muted">{user.demo ? 'Demo mode' : user.email}</span>
+          {user.demo
+            ? <span className="muted">Demo mode</span>
+            : <button className="btn-ghost topbar-email" onClick={() => setShowSettings(true)} title="Account settings">{user.email}</button>}
           <button className="btn-ghost" onClick={logout}>{user.demo ? 'Exit demo' : 'Sign out'}</button>
         </div>
       </div>
@@ -626,6 +630,14 @@ export default function App() {
         />
       )}
       </>
+      )}
+
+      {showSettings && !user.demo && (
+        <Settings
+          user={user}
+          onClose={() => setShowSettings(false)}
+          onDeleted={() => { setShowSettings(false); logout(); }}
+        />
       )}
     </div>
   );
