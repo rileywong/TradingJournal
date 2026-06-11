@@ -49,3 +49,22 @@ services:
         sync: false             # transactional email (welcome / reset / digest). Without it, emails only log.
       - key: EMAIL_FROM
         sync: false             # verified sender, e.g. "Greenstreak <hi@yourdomain.com>"
+      - key: CRON_SECRET
+        generateValue: true     # shared secret for the weekly-digest cron job
+
+  # Weekly performance-digest cron — POSTs the internal trigger every Monday.
+  # CRON_SECRET must match the web service's value; APP_URL is the web URL.
+  - type: cron
+    name: greenstreak-weekly-digest
+    runtime: node
+    schedule: "0 13 * * 1"      # Mondays 13:00 UTC
+    branch: main
+    buildCommand: npm ci
+    startCommand: node scripts/cron-digests.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_URL
+        sync: false             # the web service's public URL, e.g. https://greenstreak.onrender.com
+      - key: CRON_SECRET
+        sync: false             # paste the same value generated on the web service

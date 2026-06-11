@@ -1,6 +1,7 @@
 // Express API: auth + accounts + CSV import + analytics.
 // Exports createApp() for tests (supertest) and self-starts when run directly.
 
+import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import { existsSync } from 'node:fs';
@@ -91,6 +92,16 @@ export function createApp(repo = new Repository(), options = {}) {
   const isAdminEmail = (email) => adminEmails.has(String(email || '').toLowerCase());
   // Tag the user payload the client stores so it can show the Admin entry.
   const withAdmin = (user) => (user ? { ...user, isAdmin: isAdminEmail(user.email) } : user);
+
+  // Shared secret for internal/cron endpoints (e.g. the weekly-digest job).
+  const cronSecret = options.cronSecret || process.env.CRON_SECRET || '';
+  const requireCronSecret = (req, res, next) => {
+    const provided = req.get('x-cron-secret') || (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    const ok = cronSecret && provided && provided.length === cronSecret.length
+      && crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(cronSecret));
+    if (!ok) return res.status(401).json({ error: 'unauthorized' });
+    next();
+  };
   // The shared public-demo user; excluded from admin stats (not a real signup).
   const DEMO_EMAIL = 'demo@greenstreak.app';
 
@@ -369,10 +380,9 @@ export function createApp(repo = new Repository(), options = {}) {
 
   const PRICE_PER_MONTH = 10;
 
-  // Admin: send the weekly performance digest to every user with trades in the
-  // last 7 days. Idempotency/scheduling is the caller's job (wire to a weekly
-  // cron / Render job hitting this endpoint). Returns how many were sent.
-  app.post('/api/admin/send-digests', auth, requireAdmin, wrap((_req, res) => {
+  // Send the weekly performance digest to every user with trades in the last 7
+  // days. Returns how many were sent.
+  const sendWeeklyDigests = () => {
     const users = repo.adminListUsers().filter((u) => u.email !== DEMO_EMAIL && u.tradeCount > 0);
     let sent = 0;
     for (const u of users) {
@@ -381,7 +391,18 @@ export function createApp(repo = new Repository(), options = {}) {
       sendEmail(renderWeeklyDigestEmail({ email: u.email, appUrl: appUrl(), digest }));
       sent += 1;
     }
-    res.json({ sent });
+    return sent;
+  };
+
+  // Admin-triggered (button in the dashboard).
+  app.post('/api/admin/send-digests', auth, requireAdmin, wrap((_req, res) => {
+    res.json({ sent: sendWeeklyDigests() });
+  }));
+
+  // Cron-triggered (Render Cron Job) — gated by the shared CRON_SECRET so a
+  // scheduled job can fire it without a user token.
+  app.post('/api/internal/send-digests', requireCronSecret, wrap((_req, res) => {
+    res.json({ sent: sendWeeklyDigests() });
   }));
 
   // Admin: export the full user list as CSV (for outreach / analysis).

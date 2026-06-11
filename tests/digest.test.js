@@ -62,3 +62,24 @@ describe('admin send-digests', () => {
     await request(app).post('/api/admin/send-digests').set(auth(u.token)).expect(403);
   });
 });
+
+describe('cron-triggered digests (internal endpoint)', () => {
+  let app; let email;
+  const SECRET = 'cron-s3cret-value';
+  beforeEach(() => { email = fakeEmail(); app = createApp(undefined, { email, cronSecret: SECRET }); });
+  const auth = (tk) => ({ Authorization: `Bearer ${tk}` });
+
+  it('requires the cron secret', async () => {
+    await request(app).post('/api/internal/send-digests').expect(401);
+    await request(app).post('/api/internal/send-digests').set('X-Cron-Secret', 'wrong').expect(401);
+  });
+
+  it('sends with the correct secret', async () => {
+    const u = (await request(app).post('/api/auth/register').send({ email: 'tom@x.com', password: 'secret123' })).body;
+    const acct = (await request(app).post('/api/accounts').set(auth(u.token)).send({ name: 'M', startingBalance: 10000 })).body.account;
+    await request(app).post('/api/import').set(auth(u.token)).send({ accountId: acct.id, csv: recentCsv(), mode: 'replace' });
+
+    const res = await request(app).post('/api/internal/send-digests').set('X-Cron-Secret', SECRET).expect(200);
+    expect(res.body.sent).toBe(1);
+  });
+});

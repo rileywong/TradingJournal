@@ -65,9 +65,16 @@ need an active **$10/mo** subscription.
 
 ## 6. Weekly digest (optional)
 
-`POST /api/admin/send-digests` emails the weekly performance digest to everyone
-who traded that week. Trigger it from the Admin dashboard button, or schedule a
-weekly **Render Cron Job** that curls it with an admin token.
+Two ways to send the weekly performance digest to everyone who traded that week:
+
+- **Manually:** the **Send weekly digests** button on the Admin dashboard
+  (`POST /api/admin/send-digests`, admin-only).
+- **Automatically:** the `render.yaml` includes a **cron service**
+  (`greenstreak-weekly-digest`, Mondays 13:00 UTC) that runs
+  `scripts/cron-digests.mjs` → `POST /api/internal/send-digests`. It's gated by
+  `CRON_SECRET`: the web service **generates** one; copy that exact value into
+  the cron job's `CRON_SECRET`, and set the cron job's `APP_URL` to the web
+  service's public URL. Adjust the schedule via the `schedule:` cron expression.
 
 ## Smoke test (after setting keys)
 
@@ -89,4 +96,5 @@ weekly **Render Cron Job** that curls it with an admin token.
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | to charge | Live billing |
 | `GOOGLE_CLIENT_ID` / `APPLE_CLIENT_ID` | no | Social sign-in |
 | `ADMIN_EMAILS` | no | Admin dashboard access |
+| `CRON_SECRET` | for digest cron | Auth for `POST /api/internal/send-digests` |
 | `APP_URL` | no | Public URL (Render uses `RENDER_EXTERNAL_URL`) |
