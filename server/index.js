@@ -27,6 +27,7 @@ import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
+import { devEmailProvider, renderWelcomeEmail } from '../core/email.js';
 
 // Public base URL for provider redirects (Stripe checkout/portal return links).
 // Render injects RENDER_EXTERNAL_URL automatically, so APP_URL is optional there.
@@ -70,6 +71,15 @@ export function createApp(repo = new Repository(), options = {}) {
   const withAdmin = (user) => (user ? { ...user, isAdmin: isAdminEmail(user.email) } : user);
   // The shared public-demo user; excluded from admin stats (not a real signup).
   const DEMO_EMAIL = 'demo@greenstreak.app';
+
+  // Transactional email (pluggable). Defaults to a dev provider that records +
+  // logs. Fire-and-forget: a send failure must never break the user action.
+  const email = options.email || devEmailProvider();
+  const sendEmail = (msg) => {
+    Promise.resolve()
+      .then(() => email.send(msg))
+      .catch((err) => console.warn(`✉  email send failed (${msg && msg.to}):`, err.message));
+  };
 
   // --- auth middleware ---------------------------------------------------
   function auth(req, res, next) {
@@ -149,6 +159,7 @@ export function createApp(repo = new Repository(), options = {}) {
   app.post('/api/auth/register', wrap((req, res) => {
     const { email, password } = req.body || {};
     const user = repo.createUser(email, password);
+    sendEmail(renderWelcomeEmail({ email: user.email, appUrl: appUrl() }));
     const token = signToken({ sub: user.id, email: user.email });
     res.status(201).json({ token, user: withAdmin(user) });
   }));
