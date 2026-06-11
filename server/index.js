@@ -27,7 +27,7 @@ import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
-import { devEmailProvider, renderWelcomeEmail, renderPasswordResetEmail, renderWeeklyDigestEmail } from '../core/email.js';
+import { devEmailProvider, emailProviderFromEnv, renderWelcomeEmail, renderPasswordResetEmail, renderWeeklyDigestEmail } from '../core/email.js';
 import { buildWeeklyDigest } from '../core/digest.js';
 
 // Public base URL for provider redirects (Stripe checkout/portal return links).
@@ -897,8 +897,11 @@ if (isMain) {
   // open/early-access mode (everyone gets full access; billing stays wired up).
   const billingEnforced = String(process.env.PAYWALL_ENABLED ?? 'true').toLowerCase() !== 'false';
 
-  createApp(repo, { oauth, googleClientId, appleClientId, billing, billingEnforced }).listen(PORT, () => {
+  // Transactional email: real provider (Resend) when configured, else dev (logs).
+  const email = emailProviderFromEnv();
+
+  createApp(repo, { oauth, googleClientId, appleClientId, billing, billingEnforced, email }).listen(PORT, () => {
     const enabled = Object.keys(oauth).join(', ') || 'email/password only';
-    console.log(`Greenstreak API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'}; paywall: ${billingEnforced ? 'enforced' : 'OFF (open access)'})`);
+    console.log(`Greenstreak API on http://localhost:${PORT} (db: ${dbPath}; auth: ${enabled}; billing: ${billing ? 'stripe' : 'dev'}; email: ${email.name}; paywall: ${billingEnforced ? 'enforced' : 'OFF (open access)'})`);
   });
 }

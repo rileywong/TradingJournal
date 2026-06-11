@@ -168,6 +168,9 @@ Environment variables:
 | `STRIPE_SECRET_KEY` / `STRIPE_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | Enable live Stripe billing (optional; point the webhook at `POST /api/billing/webhook`). |
 | `APP_URL` | Public base URL, used for billing redirect targets. Optional on Render (falls back to `RENDER_EXTERNAL_URL`). |
 | `ADMIN_EMAILS` | Comma-separated emails granted the in-app **admin dashboard** (site-wide users / MRR / subscription funnel / signups). |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Deliver transactional email (welcome / password reset / weekly digest) via [Resend](https://resend.com). Without them, emails only log. |
+
+See **[GO_LIVE.md](./GO_LIVE.md)** for the full step-by-step launch runbook.
 
 In production (`NODE_ENV=production`) the server **refuses to boot** with the
 default `TJS_SECRET`, so a forgeable-token deploy can't happen by accident.

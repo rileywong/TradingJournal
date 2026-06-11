@@ -17,6 +17,39 @@ export function devEmailProvider({ log = true } = {}) {
   };
 }
 
+/**
+ * Production provider backed by Resend (https://resend.com) — a single HTTPS
+ * POST, so no SDK/native deps. `from` must be a verified sender/domain.
+ * `fetchImpl` is injectable for tests.
+ */
+export function resendEmailProvider({ apiKey, from, fetchImpl = fetch } = {}) {
+  if (!apiKey) throw new Error('resendEmailProvider requires an apiKey');
+  if (!from) throw new Error('resendEmailProvider requires a from address');
+  return {
+    name: 'resend',
+    async send({ to, subject, text, html }) {
+      const res = await fetchImpl('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, subject, text, html }),
+      });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`resend ${res.status}: ${body.slice(0, 200)}`);
+      }
+      return res.json().catch(() => ({ ok: true }));
+    },
+  };
+}
+
+/** Pick an email provider from env: Resend when configured, else dev. */
+export function emailProviderFromEnv(env = process.env) {
+  if (env.RESEND_API_KEY) {
+    return resendEmailProvider({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM || 'Greenstreak <onboarding@resend.dev>' });
+  }
+  return devEmailProvider();
+}
+
 const BRAND = 'Greenstreak';
 
 function shell(bodyHtml) {

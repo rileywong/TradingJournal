@@ -45,3 +45,7 @@ services:
         sync: false             # optional — enables "Sign in with Apple"
       - key: ADMIN_EMAILS
         sync: false             # comma-separated admin emails → the site-stats dashboard
+      - key: RESEND_API_KEY
+        sync: false             # transactional email (welcome / reset / digest). Without it, emails only log.
+      - key: EMAIL_FROM
+        sync: false             # verified sender, e.g. "Greenstreak <hi@yourdomain.com>"
