@@ -799,3 +799,10 @@ html { scroll-behavior: smooth; }
 .calc-stats span { color: var(--muted); }
 .calc-stats b { font-weight: 800; }
 .calc-empty { padding: 22px; text-align: center; font-size: 13px; border-top: 1px solid var(--border); }
+
+/* ---------- saved filter views ---------- */
+.view-chip { display: inline-flex; align-items: center; background: var(--accent-bg); border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.view-chip-name { background: transparent; color: var(--accent); font-size: 12px; font-weight: 700; padding: 5px 4px 5px 11px; }
+.view-chip-name:hover { text-decoration: underline; }
+.view-chip-x { background: transparent; color: var(--muted-2); font-size: 14px; line-height: 1; padding: 4px 8px 4px 4px; }
+.view-chip-x:hover { color: var(--negative); }

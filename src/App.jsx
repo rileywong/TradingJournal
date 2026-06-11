@@ -48,6 +48,7 @@ export default function App() {
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
   const [basis, setBasis] = useState('net');
   const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
+  const [savedViews, setSavedViews] = useState([]);
   const [trades, setTrades] = useState([]);
   const [calendar, setCalendar] = useState(null);
   const [notedDays, setNotedDays] = useState([]);
@@ -102,6 +103,14 @@ export default function App() {
     setOnboardDismissed(true);
     try { localStorage.setItem('tjs_onboard_dismissed', '1'); } catch { /* ignore */ }
   };
+
+  // Saved trade-log filter views (server-persisted per user).
+  useEffect(() => {
+    if (user && !user.demo) api.getViews().then((r) => setSavedViews(r.views || [])).catch(() => {});
+  }, [user]);
+  const persistViews = (views) => api.saveViews(views).then((r) => setSavedViews(r.views || [])).catch(() => {});
+  const saveView = (name) => persistViews([...savedViews.filter((v) => v.name !== name), { name, filter: tradeFilter }]);
+  const deleteView = (name) => persistViews(savedViews.filter((v) => v.name !== name));
 
   // After auth succeeds, drop any ?reset=… so a refresh doesn't reopen the form.
   const onAuthed = useCallback((u) => {
@@ -620,6 +629,10 @@ export default function App() {
                   onManageTags={isAll ? undefined : () => setShowTagManager(true)}
                   filter={tradeFilter}
                   onFilterChange={setTradeFilter}
+                  savedViews={savedViews}
+                  onApplyView={(f) => setTradeFilter({ ...EMPTY_FILTER, ...f })}
+                  onSaveView={user.demo ? undefined : saveView}
+                  onDeleteView={user.demo ? undefined : deleteView}
                 />
               </>
             ) : (

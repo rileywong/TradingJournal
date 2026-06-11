@@ -408,6 +408,12 @@ ${appUrl() ? `<p><a href="${appUrl()}" style="color:#0891b2;font-weight:700">Bac
 </div>`);
   }));
 
+  // Saved trade-log filter views (per user).
+  app.get('/api/me/views', auth, wrap((req, res) => res.json({ views: repo.getSavedViews(req.userId) })));
+  app.put('/api/me/views', auth, blockDemoWrites, wrap((req, res) => {
+    res.json({ views: repo.saveSavedViews(req.userId, (req.body || {}).views) });
+  }));
+
   // Email preferences (in-app toggle for the digest).
   app.get('/api/me/email-prefs', auth, wrap((req, res) => res.json(repo.getEmailPrefs(req.userId))));
   app.put('/api/me/email-prefs', auth, blockDemoWrites, wrap((req, res) => {

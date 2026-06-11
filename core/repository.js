@@ -23,6 +23,21 @@ export function sanitizeSource(s) {
   return v || 'direct';
 }
 
+const VIEW_FILTER_KEYS = ['symbol', 'side', 'outcome', 'tag', 'setup'];
+
+/** Validate saved trade-log views: [{ name, filter:{symbol,side,...} }], capped. */
+export function sanitizeSavedViews(views) {
+  if (!Array.isArray(views)) return [];
+  return views.slice(0, 20).map((v) => {
+    const name = String((v && v.name) || '').trim().slice(0, 40);
+    if (!name) return null;
+    const f = (v && v.filter) || {};
+    const filter = {};
+    for (const k of VIEW_FILTER_KEYS) filter[k] = String(f[k] ?? '').slice(0, 60);
+    return { name, filter };
+  }).filter(Boolean);
+}
+
 export class Repository {
   constructor() {
     this.users = new Map(); // id → user
@@ -130,6 +145,20 @@ export class Repository {
   getUser(userId) {
     const user = this.users.get(userId);
     return user ? this.publicUser(user) : null;
+  }
+
+  // --- saved trade-log views ---------------------------------------------
+  getSavedViews(userId) {
+    const u = this.users.get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    return u.savedViews ? u.savedViews.map((v) => ({ name: v.name, filter: { ...v.filter } })) : [];
+  }
+
+  saveSavedViews(userId, views) {
+    const u = this.users.get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    u.savedViews = sanitizeSavedViews(views);
+    return this.getSavedViews(userId);
   }
 
   // --- email preferences -------------------------------------------------

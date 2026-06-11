@@ -9,7 +9,7 @@
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { hashPassword, verifyPassword } from './auth.js';
-import { RepoError, sanitizeSource } from './repository.js';
+import { RepoError, sanitizeSource, sanitizeSavedViews } from './repository.js';
 import { newTrial } from './billing.js';
 
 // Load the built-in native module via require so bundlers (Vite/Vitest) don't
@@ -86,7 +86,7 @@ export class SqliteRepository {
       ['currentPeriodEnd', 'TEXT'], ['stripeCustomerId', 'TEXT'],
       ['cancelAtPeriodEnd', 'INTEGER'],
       ['goalMonthlyPnl', 'REAL'], ['goalWinRate', 'REAL'],
-      ['source', 'TEXT'], ['emailOptOut', 'INTEGER'],
+      ['source', 'TEXT'], ['emailOptOut', 'INTEGER'], ['savedViews', 'TEXT'],
     ]) {
       if (!userCols.includes(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
     }
@@ -229,6 +229,22 @@ export class SqliteRepository {
     if (!newPassword || String(newPassword).length < 6) throw new RepoError('password must be at least 6 characters', 400);
     this.db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(hashPassword(newPassword), userId);
     return this.publicUser(user);
+  }
+
+  // --- saved trade-log views ---------------------------------------------
+  getSavedViews(userId) {
+    const u = this.db.prepare('SELECT savedViews FROM users WHERE id = ?').get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    if (!u.savedViews) return [];
+    try { return sanitizeSavedViews(JSON.parse(u.savedViews)); } catch { return []; }
+  }
+
+  saveSavedViews(userId, views) {
+    const u = this.db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    const clean = sanitizeSavedViews(views);
+    this.db.prepare('UPDATE users SET savedViews = ? WHERE id = ?').run(JSON.stringify(clean), userId);
+    return clean;
   }
 
   // --- email preferences -------------------------------------------------

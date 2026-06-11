@@ -25,7 +25,7 @@ export const EMPTY_FILTER = { symbol: '', side: '', outcome: '', tag: '', setup:
  * shared core `filterTrades`, matching GET /api/trades semantics without a
  * round-trip.
  */
-export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onSetup, onManageTags, filter = EMPTY_FILTER, onFilterChange }) {
+export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onSetup, onManageTags, filter = EMPTY_FILTER, onFilterChange, savedViews = [], onApplyView, onSaveView, onDeleteView }) {
   const f = filter;
   const setFilter = onFilterChange || (() => {});
 
@@ -70,6 +70,20 @@ export default function TradeLog({ trades, onTag, onRisk, onTradeNote, onSetup, 
         </span>
         {active && (
           <button className="btn-ghost" onClick={() => setFilter(EMPTY_FILTER)}>Clear</button>
+        )}
+        {onApplyView && savedViews.map((v) => (
+          <span className="view-chip" key={v.name}>
+            <button className="view-chip-name" onClick={() => onApplyView(v.filter)} title="Apply this view">{v.name}</button>
+            {onDeleteView && <button className="view-chip-x" onClick={() => onDeleteView(v.name)} aria-label={`Delete view ${v.name}`}>×</button>}
+          </span>
+        ))}
+        {onSaveView && active && (
+          <button
+            className="btn-ghost"
+            onClick={() => { const name = (window.prompt('Name this view') || '').trim(); if (name) onSaveView(name); }}
+          >
+            + Save view
+          </button>
         )}
         {onManageTags && (
           <button className="btn-ghost" onClick={onManageTags} title="Rename or delete tags across all trades">
