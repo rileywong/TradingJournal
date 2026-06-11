@@ -254,6 +254,29 @@ await recordClip('journal', async (vp) => {
   await cell.scrollIntoViewIfNeeded(); await clickAt(vp, cell); await sleep(2000);
 });
 
+// ---- verification: risk calculator + saved views (light theme) ----
+const verifyPage = await browser.newPage({ viewport: { width: 1280, height: 860 }, deviceScaleFactor: 2 });
+await verifyPage.goto(BASE + '/');
+await verifyPage.evaluate(({ token, user }) => { localStorage.setItem('tjs_token', token); localStorage.setItem('tjs_user', JSON.stringify(user)); }, show);
+await fetch(BASE + '/api/me/views', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${show.token}` }, body: JSON.stringify({ views: [{ name: 'SPY winners', filter: { symbol: 'SPY', outcome: 'win' } }, { name: 'Shorts', filter: { side: 'SHORT' } }] }) });
+await verifyPage.goto(BASE + '/'); await sleep(1000);
+await verifyPage.getByRole('button', { name: 'Calculator' }).click(); await sleep(300);
+for (const [ph, val] of [['25000', '25000'], ['1', '1'], ['100.00', '100'], ['98.00', '98'], ['106.00', '106']]) {
+  await verifyPage.fill(`input[placeholder="${ph}"]`, val).catch(() => {});
+}
+await sleep(400);
+await verifyPage.screenshot({ path: OUT + '14-calculator.png' });
+console.log('shot: 14-calculator');
+await verifyPage.locator('.calc-modal .modal-close').click().catch(() => {});
+await sleep(300);
+await verifyPage.selectOption('select[aria-label="Filter by side"]', 'SHORT').catch(() => {});
+await sleep(400);
+await verifyPage.evaluate(() => { const el = document.querySelector('.trade-log'); if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 90); });
+await sleep(400);
+await verifyPage.screenshot({ path: OUT + '15-saved-views.png' });
+console.log('shot: 15-saved-views');
+await verifyPage.close();
+
 await browser.close();
 server.close();
 console.log('DONE ->', OUT);
