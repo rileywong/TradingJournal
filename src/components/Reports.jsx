@@ -1,4 +1,5 @@
 import React from 'react';
+import { buildInsights } from '../../core/insights.js';
 import DrawdownChart from './DrawdownChart.jsx';
 import Heatmap from './Heatmap.jsx';
 import YearHeatmap from './YearHeatmap.jsx';
@@ -127,8 +128,23 @@ export default function Reports({ analytics, statistics, playbook, drawdownCurve
   const st = statistics;
   const d = st && st.daily;
 
+  const insights = buildInsights(analytics);
+
   return (
     <>
+      {insights.length > 0 && (
+        <>
+          <div className="section-title">Insights</div>
+          <div className="insights-grid">
+            {insights.map((i) => (
+              <div key={i.id} className={`insight insight-${i.tone}`}>
+                <span className="insight-dot" />
+                <span>{i.text}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
       {st && (
         <>
           <div className="section-title">Key Statistics</div>
