@@ -14,6 +14,7 @@ import TagManager from './components/TagManager.jsx';
 import Paywall from './components/Paywall.jsx';
 import Landing from './components/Landing.jsx';
 import AdminDashboard from './components/AdminDashboard.jsx';
+import Onboarding from './components/Onboarding.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -72,8 +73,9 @@ export default function App() {
     if (!user || !billing || (billingEnforced && !user.demo && !billing.entitled)) return;
     api.listAccounts().then(({ accounts }) => {
       setAccounts(accounts);
+      // With accounts, select one; without, the Onboarding guide leads the way
+      // (the user opens the create-account modal from there).
       if (accounts.length > 0) setActiveId((id) => id || accounts[0].id);
-      else setShowNewAccount(true);
     }).catch(() => logout());
   }, [user, billing, billingEnforced]);
 
@@ -408,7 +410,7 @@ export default function App() {
 
       <div className="container">
         {!scopeReady ? (
-          <div className="empty-state">Create an account to begin tracking trades.</div>
+          <Onboarding onCreate={() => setShowNewAccount(true)} />
         ) : (
           <>
             <div className="tabs">

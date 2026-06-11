@@ -1,9 +1,16 @@
 import React, { useEffect } from 'react';
+import FeatureTour from './FeatureTour.jsx';
 
 // Public marketing page shown to logged-out visitors. Positioning: serious,
 // quant-grade analytics in a fast, clean journal that imports (and merges) any
 // broker — at a fraction of the incumbents' price. CTAs hand off to the auth
 // flow (onGetStarted / onSignIn) or seed a no-signup demo (onDemo).
+
+const HOW_IT_WORKS = [
+  { n: 1, title: 'Import your trades', body: 'Drag in a CSV from any broker. Greenstreak auto-detects the format and matches your fills into closed trades — splits, shorts, and flips handled.' },
+  { n: 2, title: 'See your real numbers', body: 'Instantly get 40+ statistics, your Trade Score, calendars, and heatmaps. No setup, no spreadsheets, no formulas.' },
+  { n: 3, title: 'Find & refine your edge', body: 'Tag setups, journal sessions, and double down on the strategies and time-windows that actually make you money.' },
+];
 
 const PILLARS = [
   {
@@ -95,7 +102,8 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
           <span>Greenstreak</span>
         </div>
         <nav className="landing-nav-actions">
-          <a className="landing-navlink" href="#features">Features</a>
+          <a className="landing-navlink" href="#how">How it works</a>
+          <a className="landing-navlink" href="#tour">See it</a>
           <a className="landing-navlink" href="#pricing">Pricing</a>
           <button className="btn-ghost" onClick={onSignIn}>Sign in</button>
           <button className="btn-primary landing-cta-sm" onClick={onGetStarted}>Get started</button>
@@ -171,6 +179,23 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
           ))}
         </div>
       </section>
+
+      <section className="howitworks" id="how">
+        <div className="howitworks-inner">
+          <h2 className="reveal">From broker export to real insight in three steps</h2>
+          <div className="howitworks-grid">
+            {HOW_IT_WORKS.map((s) => (
+              <div className="howstep reveal" key={s.n}>
+                <span className="howstep-num">{s.n}</span>
+                <h3>{s.title}</h3>
+                <p>{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <FeatureTour onDemo={onDemo ? viewDemo : undefined} />
 
       <section className="landing-features" id="features">
         <h2 className="reveal">Everything you need to find your edge</h2>

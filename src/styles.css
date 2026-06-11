@@ -591,3 +591,46 @@ html { scroll-behavior: smooth; }
 .admin-dot.st-none, .admin-badge.st-none { background: var(--bg); color: var(--muted-2); }
 
 .admin-generated { font-size: 11px; margin-top: 16px; }
+
+/* ---------- landing: how it works ---------- */
+.howitworks { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.howitworks-inner { max-width: 1120px; margin: 0 auto; padding: 56px 24px; }
+.howitworks h2 { text-align: center; font-size: 30px; letter-spacing: -0.02em; margin: 0 0 36px; }
+.howitworks-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+.howstep-num { width: 38px; height: 38px; border-radius: 50%; background: var(--accent-bg); color: var(--accent); font-weight: 800; display: grid; place-items: center; font-size: 16px; margin-bottom: 14px; }
+.howstep h3 { font-size: 17px; margin: 0 0 8px; letter-spacing: -0.01em; }
+.howstep p { color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 0; }
+
+/* ---------- landing: feature tour ---------- */
+.tour { max-width: 1060px; margin: 0 auto; padding: 60px 24px; text-align: center; }
+.tour h2 { font-size: 30px; letter-spacing: -0.02em; margin: 0 0 10px; }
+.tour-tabs { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 5px; margin-bottom: 28px; box-shadow: var(--shadow); }
+.tour-tab { background: transparent; color: var(--muted); font-weight: 700; font-size: 13.5px; padding: 9px 18px; border-radius: 8px; transition: background 0.15s, color 0.15s; }
+.tour-tab:hover { color: var(--text); }
+.tour-tab.active { background: var(--accent); color: #fff; }
+.tour-shot { margin: 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(16, 40, 30, 0.16); background: var(--surface); }
+.tour-shot-bar { display: flex; gap: 7px; padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.tour-shot-bar i { width: 10px; height: 10px; border-radius: 50%; background: #d4e0d9; display: block; }
+.tour-shot img { display: block; width: 100%; height: auto; }
+.tour-caption { max-width: 640px; margin: 24px auto 0; }
+.tour-caption h3 { font-size: 19px; margin: 0 0 8px; letter-spacing: -0.01em; }
+.tour-caption p { color: var(--muted); font-size: 15px; line-height: 1.6; margin: 0; }
+.tour-demo-link { background: none; border: none; color: var(--accent); font-weight: 700; font-size: 14px; padding: 0; margin-top: 14px; cursor: pointer; }
+.tour-demo-link:hover { text-decoration: underline; }
+
+/* ---------- in-app onboarding (first run) ---------- */
+.onboard { display: flex; justify-content: center; padding: 36px 0 24px; }
+.onboard-card { max-width: 560px; width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 34px; }
+.onboard-card h1 { font-size: 26px; margin: 16px 0 6px; letter-spacing: -0.02em; }
+.onboard-sub { color: var(--muted); margin: 0 0 24px; font-size: 15px; }
+.onboard-steps { list-style: none; margin: 0 0 24px; padding: 0; display: grid; gap: 16px; }
+.onboard-steps li { display: flex; gap: 14px; align-items: flex-start; }
+.onboard-num { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-bg); color: var(--accent); font-weight: 800; display: grid; place-items: center; font-size: 14px; }
+.onboard-steps strong { display: block; font-size: 15px; margin-bottom: 3px; }
+.onboard-steps span { color: var(--muted); font-size: 13.5px; line-height: 1.5; }
+.onboard-cta { width: 100%; padding: 12px; font-size: 15px; }
+.onboard-hint { font-size: 12.5px; margin-top: 14px; text-align: center; }
+
+@media (max-width: 820px) {
+  .howitworks-grid { grid-template-columns: 1fr; }
+}

@@ -68,6 +68,12 @@ for (let i = 0; i < names.length; i++) {
 }
 void seeded;
 
+// 5) Clean active-subscription user for marketing showcase shots (no banners).
+const show = await post('/api/auth/register', { email: 'sam@demo.test', password: 'password1' });
+const { account: acctShow } = await post('/api/accounts', { name: 'Main', startingBalance: 25000, commissionPerTrade: 0 }, show.token);
+await post('/api/import', { accountId: acctShow.id, csv, mode: 'replace' }, show.token);
+repo.setSubscription(show.user.id, { subscriptionStatus: 'active', currentPeriodEnd: new Date(Date.now() + 25 * DAY).toISOString() });
+
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -137,6 +143,45 @@ await setSession(a);
 await page.goto(BASE + '/'); await sleep(900);
 const adminBtn = page.getByRole('button', { name: 'Admin', exact: true });
 if (await adminBtn.count()) { await adminBtn.click(); await sleep(900); await shot('11-admin', { fullPage: true }); }
+
+// ---- new-user onboarding (fresh account-less user) ----
+const fresh = await post('/api/auth/register', { email: 'newbie@demo.test', password: 'password1' });
+const freshPage = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+await freshPage.goto(BASE + '/'); // landing, no session — nothing to race
+await freshPage.evaluate(({ token, user }) => {
+  localStorage.setItem('tjs_token', token);
+  localStorage.setItem('tjs_user', JSON.stringify(user));
+}, fresh);
+await freshPage.reload(); await sleep(1200);
+await freshPage.screenshot({ path: OUT + '12-onboarding.png' });
+console.log('shot: 12-onboarding');
+await freshPage.close();
+
+// ---- marketing showcase shots (clean active-sub user, no banners) → public/showcase/ ----
+const SHOW = new URL('../public/showcase/', import.meta.url).pathname;
+mkdirSync(SHOW, { recursive: true });
+const showPage = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
+await showPage.goto(BASE + '/');
+await showPage.evaluate(({ token, user }) => {
+  localStorage.setItem('tjs_token', token);
+  localStorage.setItem('tjs_user', JSON.stringify(user));
+}, show);
+const showShot = async (name, target) => {
+  if (target) { const el = showPage.locator(target); if (await el.count()) await el.screenshot({ path: SHOW + name + '.png' }); }
+  else { await showPage.screenshot({ path: SHOW + name + '.png' }); }
+  console.log('showcase:', name);
+};
+
+await showPage.goto(BASE + '/'); await sleep(900);
+await showShot('dashboard');
+await showShot('calendar', '.calendar');
+
+await showPage.getByRole('button', { name: 'Reports', exact: true }).click(); await sleep(900);
+await showShot('reports');
+
+await showPage.getByRole('button', { name: 'Dashboard', exact: true }).click(); await sleep(700);
+const showCell = showPage.locator('.cal-cell.clickable').filter({ hasText: /\$/ }).first();
+if (await showCell.count()) { await showCell.click(); await sleep(700); await showShot('journal', '.modal.day-detail'); }
 
 await browser.close();
 server.close();
