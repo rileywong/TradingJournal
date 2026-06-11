@@ -17,6 +17,7 @@ import AdminDashboard from './components/AdminDashboard.jsx';
 import Onboarding from './components/Onboarding.jsx';
 import OnboardingChecklist from './components/OnboardingChecklist.jsx';
 import Settings from './components/Settings.jsx';
+import GoalsCard from './components/GoalsCard.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -515,6 +516,13 @@ export default function App() {
                 <div className="section-title">Performance Snapshot</div>
                 <ScoreCard score={score} />
                 <MetricsGrid metrics={metrics} />
+
+                {!user.demo && !isAll && (
+                  <>
+                    <div className="section-title">Monthly Goal</div>
+                    <GoalsCard refreshKey={`${activeId}:${trades.length}`} />
+                  </>
+                )}
 
                 <div className="section-title">Equity Curve</div>
                 <div className="card" style={{ padding: 14 }}>

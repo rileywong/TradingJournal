@@ -710,3 +710,19 @@ html { scroll-behavior: smooth; }
 .insight-neutral { border-left-color: var(--accent); }
 .insight-neutral .insight-dot { background: var(--accent); }
 .onboard-sample { width: 100%; margin-top: 10px; font-size: 13px; }
+
+/* ---------- monthly goals card ---------- */
+.goals-card { padding: 18px; }
+.goals-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.goals-head h3 { margin: 0; font-size: 15px; }
+.goals-edit { font-size: 12px; padding: 5px 10px; }
+.goals-bars { display: grid; gap: 16px; }
+.goal-row-head { display: flex; align-items: baseline; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+.goal-row-head b { font-size: 15px; }
+.goal-track { height: 9px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.goal-track > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #34d399); border-radius: 6px; transition: width 0.6s cubic-bezier(0.16,1,0.3,1); }
+.goal-track > span.done { background: linear-gradient(90deg, var(--positive), #34d399); }
+.goals-foot { font-size: 12px; margin-top: 2px; }
+.goals-empty { font-size: 13px; margin: 0; }
+.goals-form { display: grid; gap: 12px; }
+.goals-form label { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--muted); }

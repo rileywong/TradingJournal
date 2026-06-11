@@ -125,6 +125,21 @@ export class Repository {
     return user ? this.publicUser(user) : null;
   }
 
+  // --- goals (monthly targets) -------------------------------------------
+  getGoals(userId) {
+    const u = this.users.get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    return { goalMonthlyPnl: u.goalMonthlyPnl ?? null, goalWinRate: u.goalWinRate ?? null };
+  }
+
+  setGoals(userId, { goalMonthlyPnl, goalWinRate } = {}) {
+    const u = this.users.get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    if (goalMonthlyPnl !== undefined) u.goalMonthlyPnl = goalMonthlyPnl == null || goalMonthlyPnl === '' ? null : Number(goalMonthlyPnl);
+    if (goalWinRate !== undefined) u.goalWinRate = goalWinRate == null || goalWinRate === '' ? null : Number(goalWinRate);
+    return this.getGoals(userId);
+  }
+
   /** Delete a user and ALL their data (accounts cascade to trades/notes/tags). */
   deleteUser(userId) {
     const user = this.users.get(userId);

@@ -19,7 +19,7 @@ import {
   dailyCumulativePnl,
   isValidDateKey,
 } from '../core/day.js';
-import { buildAnalytics } from '../core/analytics.js';
+import { buildAnalytics, summarize } from '../core/analytics.js';
 import { buildStatistics } from '../core/statistics.js';
 import { demoCsv } from '../core/demo-data.js';
 import { buildPlaybook, listSetups } from '../core/playbook.js';
@@ -254,6 +254,21 @@ export function createApp(repo = new Repository(), options = {}) {
     const { trades } = matchTrades(executions, { accountId: account.id, commissionPerTrade: 0 });
     repo.saveImport(req.userId, account.id, executions, trades);
     res.status(201).json({ account, trades: trades.length });
+  }));
+
+  // Monthly goals + month-to-date progress (across all accounts).
+  app.get('/api/me/goals', gate, wrap((req, res) => {
+    const goals = repo.getGoals(req.userId);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const mtdTrades = repo.listAllTrades(req.userId).filter((t) => new Date(t.closedAt).getTime() >= monthStart);
+    const s = summarize(mtdTrades);
+    res.json({ ...goals, mtd: { netPnl: s.netPnl, winRate: s.winRate, trades: s.trades } });
+  }));
+
+  app.put('/api/me/goals', writeGate, wrap((req, res) => {
+    const { goalMonthlyPnl, goalWinRate } = req.body || {};
+    res.json(repo.setGoals(req.userId, { goalMonthlyPnl, goalWinRate }));
   }));
 
   // Idempotently ensure a read-only demo user seeded with realistic sample

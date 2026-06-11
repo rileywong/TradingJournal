@@ -85,6 +85,7 @@ export class SqliteRepository {
       ['subscriptionStatus', 'TEXT'], ['trialEndsAt', 'TEXT'],
       ['currentPeriodEnd', 'TEXT'], ['stripeCustomerId', 'TEXT'],
       ['cancelAtPeriodEnd', 'INTEGER'],
+      ['goalMonthlyPnl', 'REAL'], ['goalWinRate', 'REAL'],
     ]) {
       if (!userCols.includes(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
     }
@@ -189,6 +190,23 @@ export class SqliteRepository {
 
   listWaitlist() {
     return this.db.prepare('SELECT email, createdAt FROM waitlist ORDER BY createdAt DESC').all();
+  }
+
+  getGoals(userId) {
+    const u = this.db.prepare('SELECT goalMonthlyPnl, goalWinRate FROM users WHERE id = ?').get(userId);
+    if (!u) throw new RepoError('unauthorized', 401);
+    return { goalMonthlyPnl: u.goalMonthlyPnl ?? null, goalWinRate: u.goalWinRate ?? null };
+  }
+
+  setGoals(userId, { goalMonthlyPnl, goalWinRate } = {}) {
+    const cur = this.getGoals(userId);
+    const next = {
+      goalMonthlyPnl: goalMonthlyPnl === undefined ? cur.goalMonthlyPnl : (goalMonthlyPnl == null || goalMonthlyPnl === '' ? null : Number(goalMonthlyPnl)),
+      goalWinRate: goalWinRate === undefined ? cur.goalWinRate : (goalWinRate == null || goalWinRate === '' ? null : Number(goalWinRate)),
+    };
+    this.db.prepare('UPDATE users SET goalMonthlyPnl = ?, goalWinRate = ? WHERE id = ?')
+      .run(next.goalMonthlyPnl, next.goalWinRate, userId);
+    return next;
   }
 
   deleteUser(userId) {
