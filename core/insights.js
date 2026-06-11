@@ -13,7 +13,7 @@ const hourLabel = (h) => {
 export function buildInsights(analytics, { minTrades = 6 } = {}) {
   if (!analytics) return [];
   const out = [];
-  const { byDayOfWeek = [], byHourOfDay = [], bySymbol = [], winLoss, holdTime, streaks: st } = analytics;
+  const { byDayOfWeek = [], byHourOfDay = [], bySymbol = [], byTag = [], winLoss, holdTime, streaks: st } = analytics;
   const enough = (b) => b && b.trades >= minTrades;
 
   // Best / worst weekday.
@@ -59,6 +59,19 @@ export function buildInsights(analytics, { minTrades = 6 } = {}) {
     }
     if (worstS.netPnl < 0 && worstS.key !== bestS.key) {
       out.push({ id: 'worst-symbol', tone: 'negative', text: `${worstS.key} has cost you ${money(worstS.netPnl)} over ${worstS.trades} trades — worth a rethink.` });
+    }
+  }
+
+  // Tag/mistake analytics: which tags cost the most (and which pay off).
+  const tags = byTag.filter((t) => enough(t) && t.key && t.key !== 'untagged');
+  if (tags.length) {
+    const worstTag = tags.reduce((a, b) => (b.netPnl < a.netPnl ? b : a));
+    if (worstTag.netPnl < 0) {
+      out.push({ id: 'costly-tag', tone: 'negative', text: `Trades tagged “${worstTag.key}” have cost you ${money(worstTag.netPnl)} over ${worstTag.trades} trades — review what's going wrong there.` });
+    }
+    const bestTag = tags.reduce((a, b) => (b.netPnl > a.netPnl ? b : a));
+    if (bestTag.netPnl > 0 && bestTag.key !== worstTag.key) {
+      out.push({ id: 'best-tag', tone: 'positive', text: `Your “${bestTag.key}” trades are paying off — ${money(bestTag.netPnl)} over ${bestTag.trades} trades. Do more of that.` });
     }
   }
 

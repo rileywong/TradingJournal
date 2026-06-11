@@ -63,3 +63,31 @@ describe('buildInsights', () => {
     expect(ids).toContain('hold-bias');
   });
 });
+
+describe('buildInsights — tag/mistake analytics', () => {
+  it('flags the costliest tag and the most profitable tag', () => {
+    const analytics = {
+      byTag: [
+        bucket('A+ setup', { netPnl: 1500 }),
+        bucket('FOMO', { netPnl: -900 }),
+        bucket('untagged', { netPnl: -5000 }), // excluded
+      ],
+    };
+    const ins = buildInsights(analytics);
+    const costly = ins.find((i) => i.id === 'costly-tag');
+    const best = ins.find((i) => i.id === 'best-tag');
+    expect(costly).toBeTruthy();
+    expect(costly.text).toMatch(/FOMO/);
+    expect(costly.tone).toBe('negative');
+    expect(best.text).toMatch(/A\+ setup/);
+    // 'untagged' is never surfaced as a mistake tag
+    expect(ins.some((i) => /untagged/.test(i.text))).toBe(false);
+  });
+
+  it('does not flag a costly tag when all tags are net positive', () => {
+    const analytics = { byTag: [bucket('good', { netPnl: 300 }), bucket('great', { netPnl: 800 })] };
+    const ins = buildInsights(analytics);
+    expect(ins.find((i) => i.id === 'costly-tag')).toBeUndefined();
+    expect(ins.find((i) => i.id === 'best-tag')).toBeTruthy();
+  });
+});
