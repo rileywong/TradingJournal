@@ -17,6 +17,12 @@ function sha256(s) {
   return crypto.createHash('sha256').update(String(s)).digest('hex');
 }
 
+/** Normalize a marketing source/referral tag; defaults to 'direct'. */
+export function sanitizeSource(s) {
+  const v = String(s || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40);
+  return v || 'direct';
+}
+
 export class Repository {
   constructor() {
     this.users = new Map(); // id → user
@@ -87,7 +93,7 @@ export class Repository {
   }
 
   // --- users -------------------------------------------------------------
-  createUser(email, password) {
+  createUser(email, password, source) {
     const normEmail = String(email || '').trim().toLowerCase();
     if (!normEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normEmail)) {
       throw new RepoError('invalid email', 400);
@@ -103,6 +109,7 @@ export class Repository {
       email: normEmail,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
+      source: sanitizeSource(source),
       ...newTrial(),
     };
     this.users.set(user.id, user);
@@ -216,6 +223,7 @@ export class Repository {
       email: u.email,
       createdAt: u.createdAt,
       oauth: !u.passwordHash,
+      source: u.source || 'direct',
       subscriptionStatus: u.subscriptionStatus || 'trialing',
       trialEndsAt: u.trialEndsAt || null,
       currentPeriodEnd: u.currentPeriodEnd || null,

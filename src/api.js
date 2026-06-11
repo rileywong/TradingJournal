@@ -49,8 +49,8 @@ function qs(params = {}) {
 }
 
 export const api = {
-  register: (email, password) =>
-    request('/auth/register', { method: 'POST', body: { email, password }, auth: false }),
+  register: (email, password, source) =>
+    request('/auth/register', { method: 'POST', body: { email, password, source }, auth: false }),
   login: (email, password) =>
     request('/auth/login', { method: 'POST', body: { email, password }, auth: false }),
   authConfig: () => request('/auth/config', { auth: false }),

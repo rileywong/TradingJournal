@@ -78,8 +78,12 @@ export default function App() {
 
   // Deep-link from a password-reset email (/?reset=<token>) opens the reset form.
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get('reset');
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get('reset');
     if (t) { setResetToken(t); setAuthView('reset'); }
+    // First-touch attribution: remember ?ref= / ?source= until signup.
+    const src = params.get('ref') || params.get('source');
+    try { if (src && !localStorage.getItem('tjs_source')) localStorage.setItem('tjs_source', src); } catch { /* ignore */ }
   }, []);
 
   // Mark the "explore your reports" onboarding step the first time Reports opens.

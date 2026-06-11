@@ -97,7 +97,13 @@ export default function Auth({ onAuthed, initialMode = 'login', onBack, resetTok
       completeOauth(api.resetPassword(resetToken, password));
       return;
     }
-    completeOauth((mode === 'login' ? api.login : api.register)(email, password));
+    if (mode === 'register') {
+      let source;
+      try { source = localStorage.getItem('tjs_source') || undefined; } catch { source = undefined; }
+      completeOauth(api.register(email, password, source));
+      return;
+    }
+    completeOauth(api.login(email, password));
   };
 
   const ssoEnabled = (providers.google?.enabled || providers.apple?.enabled) && (mode === 'login' || mode === 'register');

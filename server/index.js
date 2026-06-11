@@ -179,8 +179,8 @@ export function createApp(repo = new Repository(), options = {}) {
 
   // --- auth routes -------------------------------------------------------
   app.post('/api/auth/register', wrap((req, res) => {
-    const { email, password } = req.body || {};
-    const user = repo.createUser(email, password);
+    const { email, password, source } = req.body || {};
+    const user = repo.createUser(email, password, source);
     sendEmail(renderWelcomeEmail({ email: user.email, appUrl: appUrl() }));
     const token = signToken({ sub: user.id, email: user.email });
     res.status(201).json({ token, user: withAdmin(user) });
@@ -513,6 +513,9 @@ export function createApp(repo = new Repository(), options = {}) {
       funnelStages,
       dropOff,
       cohorts,
+      sourceBreakdown: Object.entries(users.reduce((m, u) => { const s = u.source || 'direct'; m[s] = (m[s] || 0) + 1; return m; }, {}))
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count),
       waitlistCount: repo.countWaitlist(),
       signupSeries,
       recentSignups,

@@ -60,7 +60,7 @@ export default function AdminDashboard({ onBack }) {
   }
   if (!stats) return <div className="container"><div className="empty-state">Loading site stats…</div></div>;
 
-  const { totalUsers, signups, funnel, revenue, conversion, engagement, funnelStages = [], dropOff, cohorts = [], waitlistCount = 0, signupSeries, recentSignups, generatedAt } = stats;
+  const { totalUsers, signups, funnel, revenue, conversion, engagement, funnelStages = [], dropOff, cohorts = [], sourceBreakdown = [], waitlistCount = 0, signupSeries, recentSignups, generatedAt } = stats;
   const maxDay = Math.max(1, ...signupSeries.map((d) => d.count));
 
   return (
@@ -158,6 +158,22 @@ export default function AdminDashboard({ onBack }) {
                 ))}
               </tbody>
             </table>
+          </div>
+        </>
+      )}
+
+      {sourceBreakdown.length > 0 && (
+        <>
+          <div className="section-title">Signups by source</div>
+          <div className="card admin-panel">
+            <div className="admin-funnel">
+              {sourceBreakdown.map((s) => (
+                <div key={s.source} className="admin-funnel-row">
+                  <span className="admin-funnel-label">{s.source}</span>
+                  <span className="admin-funnel-count">{s.count.toLocaleString()} <span className="afunnel-pct">{pct(totalUsers ? s.count / totalUsers : 0)}</span></span>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}

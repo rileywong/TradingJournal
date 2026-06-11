@@ -9,7 +9,7 @@
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 import { hashPassword, verifyPassword } from './auth.js';
-import { RepoError } from './repository.js';
+import { RepoError, sanitizeSource } from './repository.js';
 import { newTrial } from './billing.js';
 
 // Load the built-in native module via require so bundlers (Vite/Vitest) don't
@@ -86,6 +86,7 @@ export class SqliteRepository {
       ['currentPeriodEnd', 'TEXT'], ['stripeCustomerId', 'TEXT'],
       ['cancelAtPeriodEnd', 'INTEGER'],
       ['goalMonthlyPnl', 'REAL'], ['goalWinRate', 'REAL'],
+      ['source', 'TEXT'],
     ]) {
       if (!userCols.includes(col)) this.db.exec(`ALTER TABLE users ADD COLUMN ${col} ${type}`);
     }
@@ -96,7 +97,7 @@ export class SqliteRepository {
   }
 
   // --- users -------------------------------------------------------------
-  createUser(email, password) {
+  createUser(email, password, source) {
     const normEmail = String(email || '').trim().toLowerCase();
     if (!normEmail || !EMAIL_RE.test(normEmail)) throw new RepoError('invalid email', 400);
     if (!password || String(password).length < 6) {
@@ -106,7 +107,7 @@ export class SqliteRepository {
       throw new RepoError('email already registered', 409);
     }
     const trial = newTrial();
-    const user = { id: uuid(), email: normEmail, passwordHash: hashPassword(password), createdAt: new Date().toISOString(), ...trial };
+    const user = { id: uuid(), email: normEmail, passwordHash: hashPassword(password), createdAt: new Date().toISOString(), source: sanitizeSource(source), ...trial };
     this.#insertUser(user);
     return this.publicUser(user);
   }
@@ -154,7 +155,7 @@ export class SqliteRepository {
   // --- admin (site-wide aggregates; the CALLER must enforce admin access) ---
   adminListUsers() {
     const rows = this.db.prepare(`
-      SELECT u.id, u.email, u.createdAt, u.passwordHash,
+      SELECT u.id, u.email, u.createdAt, u.passwordHash, u.source,
              u.subscriptionStatus, u.trialEndsAt, u.currentPeriodEnd, u.cancelAtPeriodEnd,
              (SELECT COUNT(*) FROM accounts a WHERE a.userId = u.id) AS accountCount,
              (SELECT COUNT(*) FROM trades t
@@ -166,6 +167,7 @@ export class SqliteRepository {
       email: u.email,
       createdAt: u.createdAt,
       oauth: !u.passwordHash,
+      source: u.source || 'direct',
       subscriptionStatus: u.subscriptionStatus || 'trialing',
       trialEndsAt: u.trialEndsAt || null,
       currentPeriodEnd: u.currentPeriodEnd || null,
@@ -255,10 +257,10 @@ export class SqliteRepository {
 
   #insertUser(user) {
     this.db.prepare(`
-      INSERT INTO users (id, email, passwordHash, createdAt, subscriptionStatus, trialEndsAt, currentPeriodEnd)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (id, email, passwordHash, createdAt, subscriptionStatus, trialEndsAt, currentPeriodEnd, source)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(user.id, user.email, user.passwordHash, user.createdAt,
-      user.subscriptionStatus || null, user.trialEndsAt || null, user.currentPeriodEnd || null);
+      user.subscriptionStatus || null, user.trialEndsAt || null, user.currentPeriodEnd || null, user.source || 'direct');
   }
 
   getSubscription(userId) {
