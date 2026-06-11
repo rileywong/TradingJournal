@@ -15,6 +15,7 @@ import Paywall from './components/Paywall.jsx';
 import Landing from './components/Landing.jsx';
 import AdminDashboard from './components/AdminDashboard.jsx';
 import Onboarding from './components/Onboarding.jsx';
+import OnboardingChecklist from './components/OnboardingChecklist.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -33,6 +34,9 @@ export default function App() {
   const [yearCursor, setYearCursor] = useState(() => new Date().getFullYear());
   const [view, setView] = useState('dashboard');
   const [adminView, setAdminView] = useState(false);
+  const readFlag = (k) => { try { return localStorage.getItem(k) === '1'; } catch { return false; } };
+  const [onboardDismissed, setOnboardDismissed] = useState(() => readFlag('tjs_onboard_dismissed'));
+  const [exploredReports, setExploredReports] = useState(() => readFlag('tjs_explored_reports'));
   const [period, setPeriod] = useState('all');
   const [basis, setBasis] = useState('net');
   const [tradeFilter, setTradeFilter] = useState(EMPTY_FILTER);
@@ -73,6 +77,19 @@ export default function App() {
     const t = new URLSearchParams(window.location.search).get('reset');
     if (t) { setResetToken(t); setAuthView('reset'); }
   }, []);
+
+  // Mark the "explore your reports" onboarding step the first time Reports opens.
+  useEffect(() => {
+    if (view === 'reports' && !exploredReports) {
+      setExploredReports(true);
+      try { localStorage.setItem('tjs_explored_reports', '1'); } catch { /* ignore */ }
+    }
+  }, [view, exploredReports]);
+
+  const dismissOnboard = () => {
+    setOnboardDismissed(true);
+    try { localStorage.setItem('tjs_onboard_dismissed', '1'); } catch { /* ignore */ }
+  };
 
   // After auth succeeds, drop any ?reset=… so a refresh doesn't reopen the form.
   const onAuthed = useCallback((u) => {
@@ -474,6 +491,16 @@ export default function App() {
 
             {view === 'dashboard' ? (
               <>
+                {!user.demo && !onboardDismissed && (
+                  <OnboardingChecklist
+                    hasAccount={accounts.length > 0}
+                    hasTrades={trades.length > 0}
+                    exploredReports={exploredReports}
+                    onImport={() => setView('dashboard')}
+                    onExplore={() => setView('reports')}
+                    onDismiss={dismissOnboard}
+                  />
+                )}
                 <div className="section-title">Performance Snapshot</div>
                 <ScoreCard score={score} />
                 <MetricsGrid metrics={metrics} />
