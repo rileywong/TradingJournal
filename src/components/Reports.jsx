@@ -82,17 +82,24 @@ function BreakdownTable({ title, rows, keyLabel, onRowClick, isRowClickable = ()
  * Reports view — TradeZella-style performance breakdowns.
  * Props: analytics (from GET /api/analytics).
  */
-function TopTradesTable({ title, rows }) {
+function TopTradesTable({ title, rows, onOpenDay }) {
   return (
     <div className="card report-card">
-      <h3>{title}</h3>
+      <h3>
+        {title}
+        {onOpenDay && <span className="muted report-hint"> · click to open day</span>}
+      </h3>
       <table className="report-table">
         <thead>
           <tr><th>Symbol</th><th>Date</th><th style={{ textAlign: 'right' }}>Net P&amp;L</th></tr>
         </thead>
         <tbody>
           {rows.map((t, i) => (
-            <tr key={i}>
+            <tr
+              key={i}
+              className={onOpenDay ? 'report-row-clickable' : undefined}
+              onClick={onOpenDay ? () => onOpenDay(t.closedAt) : undefined}
+            >
               <td className="sym">{t.symbol}{t.side ? <span className="muted"> · {t.side}</span> : null}</td>
               <td className="muted">{new Date(t.closedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</td>
               <td style={{ textAlign: 'right' }} className={t.netPnl > 0 ? 'pos' : t.netPnl < 0 ? 'neg' : 'muted'}>{fmtMoney(t.netPnl)}</td>
@@ -115,7 +122,7 @@ function StatCard({ label, value, hint, tone }) {
   );
 }
 
-export default function Reports({ analytics, statistics, playbook, drawdownCurve, onDrill, yearHeatmap, onPrevYear, onNextYear }) {
+export default function Reports({ analytics, statistics, playbook, drawdownCurve, onDrill, onOpenDay, yearHeatmap, onPrevYear, onNextYear }) {
   if (!analytics) return <div className="empty-state">Loading reports…</div>;
   const { streaks, holdTime, winLoss } = analytics;
 
@@ -246,8 +253,8 @@ export default function Reports({ analytics, statistics, playbook, drawdownCurve
         <>
           <div className="section-title">Biggest Wins &amp; Losses</div>
           <div className="reports-grid">
-            <TopTradesTable title="Top winners" rows={analytics.topTrades.best} />
-            <TopTradesTable title="Top losers" rows={analytics.topTrades.worst} />
+            <TopTradesTable title="Top winners" rows={analytics.topTrades.best} onOpenDay={onOpenDay} />
+            <TopTradesTable title="Top losers" rows={analytics.topTrades.worst} onOpenDay={onOpenDay} />
           </div>
         </>
       )}

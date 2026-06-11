@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api, getStoredUser, clearSession, setSession } from './api.js';
 import { PERIODS, periodRange, resolveRange } from '../core/period.js';
+import { dayKey } from '../core/dates.js';
 import { buildInsights } from '../core/insights.js';
 import Auth from './components/Auth.jsx';
 import MetricsGrid from './components/MetricsGrid.jsx';
@@ -625,6 +626,7 @@ export default function App() {
                 playbook={playbook}
                 drawdownCurve={drawdownCurve}
                 onDrill={drillToTrades}
+                onOpenDay={isAll ? undefined : (closedAt) => openDay(dayKey(closedAt))}
                 yearHeatmap={yearHeatmap}
                 onPrevYear={() => setYearCursor((y) => y - 1)}
                 onNextYear={() => setYearCursor((y) => y + 1)}
