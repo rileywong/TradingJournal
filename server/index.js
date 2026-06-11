@@ -257,14 +257,21 @@ export function createApp(repo = new Repository(), options = {}) {
     res.status(201).json({ account, trades: trades.length });
   }));
 
-  // Monthly goals + month-to-date progress (across all accounts).
+  // Monthly goals + month-to-date progress + last-month comparison (all accounts).
   app.get('/api/me/goals', gate, wrap((req, res) => {
     const goals = repo.getGoals(req.userId);
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-    const mtdTrades = repo.listAllTrades(req.userId).filter((t) => new Date(t.closedAt).getTime() >= monthStart);
-    const s = summarize(mtdTrades);
-    res.json({ ...goals, mtd: { netPnl: s.netPnl, winRate: s.winRate, trades: s.trades } });
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+    const all = repo.listAllTrades(req.userId);
+    const inWindow = (lo, hi) => all.filter((t) => {
+      const x = new Date(t.closedAt).getTime();
+      return x >= lo && (hi == null || x < hi);
+    });
+    const slim = (s) => ({ netPnl: s.netPnl, winRate: s.winRate, trades: s.trades });
+    const mtd = slim(summarize(inWindow(monthStart, null)));
+    const lastMonth = slim(summarize(inWindow(lastMonthStart, monthStart)));
+    res.json({ ...goals, mtd, lastMonth });
   }));
 
   app.put('/api/me/goals', writeGate, wrap((req, res) => {

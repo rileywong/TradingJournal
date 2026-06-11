@@ -50,6 +50,13 @@ export default function GoalsCard({ refreshKey }) {
   };
 
   const hasGoals = g.goalMonthlyPnl != null || g.goalWinRate != null;
+  const delta = g.lastMonth ? g.mtd.netPnl - g.lastMonth.netPnl : null;
+  const comparison = g.lastMonth && (g.lastMonth.trades > 0 || g.mtd.trades > 0) ? (
+    <div className="goals-compare">
+      <span>vs last month <b>{money(g.lastMonth.netPnl)}</b></span>
+      <span className={delta >= 0 ? 'pos' : 'neg'}>{delta >= 0 ? '▲' : '▼'} {money(Math.abs(delta))}</span>
+    </div>
+  ) : null;
 
   return (
     <div className="card goals-card">
@@ -81,9 +88,13 @@ export default function GoalsCard({ refreshKey }) {
               pctVal={clamp((g.mtd.winRate / g.goalWinRate) * 100)} done={g.mtd.winRate >= g.goalWinRate} />
           )}
           <div className="goals-foot muted">{g.mtd.trades} trade{g.mtd.trades === 1 ? '' : 's'} this month</div>
+          {comparison}
         </div>
       ) : (
-        <p className="goals-empty muted">Set a monthly P&amp;L or win-rate target to track your progress.</p>
+        <div>
+          <p className="goals-empty muted">Set a monthly P&amp;L or win-rate target to track your progress.</p>
+          {comparison}
+        </div>
       )}
     </div>
   );

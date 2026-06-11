@@ -41,5 +41,7 @@ describe('goals', () => {
     expect(g.mtd.trades).toBe(2);
     expect(g.mtd.netPnl).toBeCloseTo(200, 1);
     expect(g.mtd.winRate).toBeCloseTo(0.5, 5);
+    expect(g.lastMonth).toBeDefined();
+    expect(typeof g.lastMonth.netPnl).toBe('number');
   });
 });
