@@ -20,6 +20,7 @@ import Onboarding from './components/Onboarding.jsx';
 import OnboardingChecklist from './components/OnboardingChecklist.jsx';
 import Settings from './components/Settings.jsx';
 import GoalsCard from './components/GoalsCard.jsx';
+import RiskCalculator from './components/RiskCalculator.jsx';
 
 export default function App() {
   const [user, setUser] = useState(getStoredUser());
@@ -40,6 +41,7 @@ export default function App() {
   const [adminView, setAdminView] = useState(false);
   const readFlag = (k) => { try { return localStorage.getItem(k) === '1'; } catch { return false; } };
   const [showSettings, setShowSettings] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
   const [onboardDismissed, setOnboardDismissed] = useState(() => readFlag('tjs_onboard_dismissed'));
   const [exploredReports, setExploredReports] = useState(() => readFlag('tjs_explored_reports'));
   const [period, setPeriod] = useState('all');
@@ -388,6 +390,7 @@ export default function App() {
               {adminView ? 'Exit admin' : 'Admin'}
             </button>
           )}
+          <button className="btn-ghost" onClick={() => setShowCalc(true)} title="Position-size / risk calculator">Calculator</button>
           {user.demo
             ? <span className="muted">Demo mode</span>
             : <button className="btn-ghost topbar-email" onClick={() => setShowSettings(true)} title="Account settings">{user.email}</button>}
@@ -699,6 +702,13 @@ export default function App() {
           user={user}
           onClose={() => setShowSettings(false)}
           onDeleted={() => { setShowSettings(false); logout(); }}
+        />
+      )}
+
+      {showCalc && (
+        <RiskCalculator
+          accountSize={activeAccount && activeAccount.startingBalance}
+          onClose={() => setShowCalc(false)}
         />
       )}
     </div>

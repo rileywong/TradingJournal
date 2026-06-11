@@ -780,3 +780,22 @@ html { scroll-behavior: smooth; }
 .custom-range-sep { color: var(--muted-2); font-weight: 700; }
 .custom-range-clear { background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); width: 28px; height: 28px; border-radius: 7px; font-size: 16px; line-height: 1; }
 .custom-range-clear:hover { background: var(--bg); color: var(--text); }
+
+/* ---------- risk calculator ---------- */
+.calc-modal { max-width: 440px; width: 100%; padding: 0; }
+.calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 18px 22px; }
+.calc-field { display: grid; gap: 5px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.calc-field:first-child { grid-column: 1 / -1; }
+.calc-input { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+.calc-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.calc-input i { padding: 0 0 0 11px; color: var(--muted-2); font-style: normal; font-weight: 700; }
+.calc-input input { border: none; box-shadow: none !important; flex: 1; min-width: 0; }
+.calc-result { border-top: 1px solid var(--border); padding: 18px 22px; display: flex; gap: 20px; align-items: center; background: var(--surface-2); }
+.calc-shares { text-align: center; flex: none; }
+.calc-shares-num { display: block; font-size: 34px; font-weight: 800; letter-spacing: -1px; color: var(--accent); }
+.calc-shares-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+.calc-stats { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+.calc-stats > div { display: flex; justify-content: space-between; font-size: 13px; }
+.calc-stats span { color: var(--muted); }
+.calc-stats b { font-weight: 800; }
+.calc-empty { padding: 22px; text-align: center; font-size: 13px; border-top: 1px solid var(--border); }
