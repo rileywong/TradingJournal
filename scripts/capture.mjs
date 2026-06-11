@@ -91,6 +91,10 @@ const shot = async (name, opts = {}) => {
 // ---- logged-out: landing + auth ----
 await clear();
 await page.goto(BASE + '/'); await sleep(500);
+// Reveal-on-scroll elements animate in via IntersectionObserver as a user
+// scrolls; for a static full-page capture, force them all visible up front.
+await page.evaluate(() => document.querySelectorAll('.reveal').forEach((e) => e.classList.add('in')));
+await sleep(400);
 await shot('01-landing', { fullPage: true });
 
 await page.getByRole('button', { name: 'Sign in', exact: true }).first().click(); await sleep(400);
