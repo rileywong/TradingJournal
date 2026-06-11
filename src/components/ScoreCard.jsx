@@ -3,7 +3,7 @@ import React from 'react';
 // Color ramp by score band (matches the light-theme palette).
 function scoreColor(score) {
   if (score >= 80) return '#10b981'; // emerald
-  if (score >= 60) return '#6366f1'; // indigo
+  if (score >= 60) return '#84cc16'; // lime
   if (score >= 40) return '#f59e0b'; // amber
   return '#ef4444'; // crimson
 }

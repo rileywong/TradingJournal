@@ -79,11 +79,11 @@ export default function Landing({ onGetStarted, onSignIn, onDemo }) {
           <svg className="lhc-chart" viewBox="0 0 320 90" preserveAspectRatio="none">
             <polyline
               points="0,80 30,70 55,74 85,58 115,60 145,44 175,48 205,32 235,36 265,18 300,10 320,6"
-              fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"
+              fill="none" stroke="#059669" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"
             />
             <polyline
               points="0,90 0,80 30,70 55,74 85,58 115,60 145,44 175,48 205,32 235,36 265,18 300,10 320,6 320,90"
-              fill="#eef0fe" stroke="none"
+              fill="#e2f5eb" stroke="none"
             />
           </svg>
         </div>

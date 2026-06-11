@@ -4,8 +4,8 @@ import BaseChart, { CHART_TOKENS } from './BaseChart.jsx';
 const makeSeries = (chart) =>
   chart.addAreaSeries({
     lineColor: CHART_TOKENS.accent,
-    topColor: 'rgba(99, 102, 241, 0.22)',
-    bottomColor: 'rgba(99, 102, 241, 0.02)',
+    topColor: 'rgba(5, 150, 105, 0.22)',
+    bottomColor: 'rgba(5, 150, 105, 0.02)',
     lineWidth: 2,
     priceLineVisible: false,
     priceFormat: { type: 'price', precision: 2, minMove: 0.01 },

@@ -3,12 +3,12 @@ import { createChart } from 'lightweight-charts';
 
 // Shared light-theme tokens for every chart (mirrors styles.css).
 export const CHART_TOKENS = {
-  text: '#64748b',
+  text: '#5e7268',
   grid: '#eef1f6',
-  border: '#e6eaf0',
+  border: '#e2ece6',
   positive: '#10b981',
   negative: '#ef4444',
-  accent: '#6366f1',
+  accent: '#059669',
 };
 
 /**
