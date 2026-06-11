@@ -69,6 +69,7 @@ export const api = {
   mockCompleteCheckout: () => request('/billing/mock-complete', { method: 'POST' }),
   openBillingPortal: () => request('/billing/portal', { method: 'POST' }),
   adminStats: () => request('/admin/stats'),
+  sendDigests: () => request('/admin/send-digests', { method: 'POST' }),
   listAccounts: () => request('/accounts'),
   createAccount: (body) => request('/accounts', { method: 'POST', body }),
   loadSampleData: () => request('/me/sample-data', { method: 'POST' }),

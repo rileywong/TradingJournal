@@ -71,6 +71,16 @@ export default function AdminDashboard({ onBack }) {
           <h1 className="admin-title">Overview</h1>
         </div>
         <div className="admin-head-actions">
+          <button
+            className="btn-ghost"
+            onClick={async () => {
+              if (!window.confirm('Email the weekly digest to all users who traded this week?')) return;
+              try { const { sent } = await api.sendDigests(); window.alert(`Digest sent to ${sent} user${sent === 1 ? '' : 's'}.`); }
+              catch (e) { window.alert(`Failed: ${e.message}`); }
+            }}
+          >
+            Send weekly digests
+          </button>
           <button className="btn-ghost" onClick={downloadUsersCsv}>Export users CSV</button>
           <button className="btn-ghost" onClick={onBack}>← Back to app</button>
         </div>

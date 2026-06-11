@@ -27,7 +27,8 @@ import { computeEntitlement } from '../core/billing.js';
 import { computeScore } from '../core/score.js';
 import { filterTrades } from '../core/filters.js';
 import { projectBasis, normalizeBasis } from '../core/basis.js';
-import { devEmailProvider, renderWelcomeEmail, renderPasswordResetEmail } from '../core/email.js';
+import { devEmailProvider, renderWelcomeEmail, renderPasswordResetEmail, renderWeeklyDigestEmail } from '../core/email.js';
+import { buildWeeklyDigest } from '../core/digest.js';
 
 // Public base URL for provider redirects (Stripe checkout/portal return links).
 // Render injects RENDER_EXTERNAL_URL automatically, so APP_URL is optional there.
@@ -343,6 +344,21 @@ export function createApp(repo = new Repository(), options = {}) {
   }
 
   const PRICE_PER_MONTH = 10;
+
+  // Admin: send the weekly performance digest to every user with trades in the
+  // last 7 days. Idempotency/scheduling is the caller's job (wire to a weekly
+  // cron / Render job hitting this endpoint). Returns how many were sent.
+  app.post('/api/admin/send-digests', auth, requireAdmin, wrap((_req, res) => {
+    const users = repo.adminListUsers().filter((u) => u.email !== DEMO_EMAIL && u.tradeCount > 0);
+    let sent = 0;
+    for (const u of users) {
+      const digest = buildWeeklyDigest(repo.listAllTrades(u.id));
+      if (!digest) continue;
+      sendEmail(renderWeeklyDigestEmail({ email: u.email, appUrl: appUrl(), digest }));
+      sent += 1;
+    }
+    res.json({ sent });
+  }));
 
   // Admin: export the full user list as CSV (for outreach / analysis).
   app.get('/api/admin/users.csv', auth, requireAdmin, wrap((_req, res) => {

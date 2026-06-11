@@ -64,3 +64,32 @@ export function renderPasswordResetEmail({ email, resetUrl } = {}) {
 <p style="font-size:13px;color:#93a79c">If this wasn't you, you can safely ignore this email.</p>`),
   };
 }
+
+const fmtMoney = (n) => `${n < 0 ? '-' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
+const fmtPct = (r) => `${Math.round((r || 0) * 100)}%`;
+
+/** Weekly performance digest email. `digest` is from buildWeeklyDigest(). */
+export function renderWeeklyDigestEmail({ email, appUrl, digest } = {}) {
+  const url = link(appUrl);
+  const d = digest || {};
+  const sign = d.netPnl >= 0 ? '+' : '';
+  const bestLine = d.bestDay ? `Best day: ${d.bestDay.date} (${fmtMoney(d.bestDay.pnl)})` : '';
+  const worstLine = d.worstDay ? `Toughest day: ${d.worstDay.date} (${fmtMoney(d.worstDay.pnl)})` : '';
+  return {
+    to: email,
+    subject: `Your trading week: ${sign}${fmtMoney(d.netPnl)} over ${d.trades} trades`,
+    text: `Here's your week on ${BRAND}:\n\n`
+      + `Net P&L: ${sign}${fmtMoney(d.netPnl)}\n`
+      + `Trades: ${d.trades} (${d.wins}W / ${d.losses}L, ${fmtPct(d.winRate)} win rate)\n`
+      + `${bestLine}\n${worstLine}\n\n`
+      + (url ? `See the full breakdown: ${url}\n` : ''),
+    html: shell(`<h1 style="font-size:20px;margin:0 0 12px">Your week on ${BRAND}</h1>
+<table style="width:100%;border-collapse:collapse;font-size:15px">
+<tr><td style="padding:6px 0;color:#5e7268">Net P&L</td><td style="padding:6px 0;text-align:right;font-weight:800;color:${d.netPnl >= 0 ? '#10b981' : '#ef4444'}">${sign}${fmtMoney(d.netPnl)}</td></tr>
+<tr><td style="padding:6px 0;color:#5e7268">Trades</td><td style="padding:6px 0;text-align:right;font-weight:700">${d.trades} · ${fmtPct(d.winRate)} win rate</td></tr>
+${d.bestDay ? `<tr><td style="padding:6px 0;color:#5e7268">Best day</td><td style="padding:6px 0;text-align:right;font-weight:700">${d.bestDay.date} (${fmtMoney(d.bestDay.pnl)})</td></tr>` : ''}
+${d.worstDay ? `<tr><td style="padding:6px 0;color:#5e7268">Toughest day</td><td style="padding:6px 0;text-align:right;font-weight:700">${d.worstDay.date} (${fmtMoney(d.worstDay.pnl)})</td></tr>` : ''}
+</table>
+${url ? `<p style="margin-top:18px"><a href="${url}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px">See the full breakdown</a></p>` : ''}`),
+  };
+}
