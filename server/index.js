@@ -246,6 +246,23 @@ export function createApp(repo = new Repository(), options = {}) {
     res.json({ ok: true });
   }));
 
+  // Restore from a previous export (backup / migration): recreate the accounts
+  // and their trades. Adds new accounts; doesn't touch existing ones.
+  app.post('/api/me/import-data', writeGate, wrap((req, res) => {
+    const accounts = (req.body || {}).accounts;
+    if (!Array.isArray(accounts)) throw new RepoError('accounts array required', 400);
+    let trades = 0;
+    for (const a of accounts) {
+      const account = repo.createAccount(req.userId, {
+        name: a.name, startingBalance: a.startingBalance, commissionPerTrade: a.commissionPerTrade,
+      });
+      const rows = Array.isArray(a.trades) ? a.trades : [];
+      repo.saveImport(req.userId, account.id, [], rows.map((t) => ({ ...t, accountId: account.id })));
+      trades += rows.length;
+    }
+    res.status(201).json({ accounts: accounts.length, trades });
+  }));
+
   // One-click "try it with sample data": seed the user's OWN account with the
   // demo dataset (through the real parse→match→store path) so a new user can
   // explore immediately, then delete it when ready for real imports.

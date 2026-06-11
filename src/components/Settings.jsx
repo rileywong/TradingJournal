@@ -9,6 +9,7 @@ export default function Settings({ user, onClose, onDeleted }) {
   const [next, setNext] = useState('');
   const [pw, setPw] = useState({ state: 'idle', msg: '' });
   const [exporting, setExporting] = useState(false);
+  const [restore, setRestore] = useState({ busy: false, msg: '' });
   const [confirm, setConfirm] = useState('');
   const [del, setDel] = useState({ busy: false, err: '' });
 
@@ -77,10 +78,33 @@ export default function Settings({ user, onClose, onDeleted }) {
 
         <div className="settings-section">
           <div className="settings-label">Your data</div>
-          <p className="settings-help">Download everything — accounts, trades, tags, and notes — as JSON.</p>
+          <p className="settings-help">Download everything — accounts, trades, tags, and notes — as JSON, or restore a previous export.</p>
           <button className="btn-ghost settings-btn" onClick={exportData} disabled={exporting}>
             {exporting ? 'Preparing…' : 'Export my data'}
           </button>
+          <label className="btn-ghost settings-btn settings-restore">
+            {restore.busy ? 'Restoring…' : 'Restore from export'}
+            <input
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              disabled={restore.busy}
+              onChange={async (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                setRestore({ busy: true, msg: '' });
+                try {
+                  const data = JSON.parse(await file.text());
+                  const r = await api.importData(data);
+                  setRestore({ busy: false, msg: `Restored ${r.accounts} account(s), ${r.trades} trades.` });
+                } catch (err) {
+                  setRestore({ busy: false, msg: `Restore failed: ${err.message}` });
+                }
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {restore.msg && <p className={/failed/i.test(restore.msg) ? 'settings-msg err' : 'settings-msg ok'}>{restore.msg}</p>}
         </div>
 
         <div className="settings-section danger">

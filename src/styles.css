@@ -733,3 +733,4 @@ html { scroll-behavior: smooth; }
 .goals-compare b { color: var(--text); font-weight: 700; }
 .goals-compare .pos { color: var(--positive); font-weight: 700; }
 .goals-compare .neg { color: var(--negative); font-weight: 700; }
+.settings-restore { display:block; text-align:center; margin-top:10px; cursor:pointer; }

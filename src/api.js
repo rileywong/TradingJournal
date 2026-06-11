@@ -64,6 +64,7 @@ export const api = {
   resetPassword: (token, password) => request('/auth/reset', { method: 'POST', body: { token, password }, auth: false }),
   changePassword: (currentPassword, newPassword) => request('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
   deleteMe: () => request('/me', { method: 'DELETE' }),
+  importData: (body) => request('/me/import-data', { method: 'POST', body }),
   billingStatus: () => request('/billing/status'),
   startCheckout: () => request('/billing/checkout', { method: 'POST' }),
   mockCompleteCheckout: () => request('/billing/mock-complete', { method: 'POST' }),
