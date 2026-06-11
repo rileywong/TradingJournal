@@ -246,9 +246,28 @@ export function rMultipleStats(trades) {
 }
 
 /** Full analytics payload for the Reports view. */
+/**
+ * Profit concentration: what share of gross profit comes from the single best
+ * trade and the single best day. High values warn of over-reliance on outliers.
+ */
+export function profitConcentration(trades) {
+  const winners = trades.filter((t) => t.netPnl > 0);
+  const grossProfit = winners.reduce((s, t) => s + t.netPnl, 0);
+  if (grossProfit <= 0) return { topTradePct: null, topDayPct: null };
+  const bestTrade = winners.reduce((m, t) => (t.netPnl > m ? t.netPnl : m), 0);
+  const byDay = new Map();
+  for (const t of trades) {
+    const day = String(t.closedAt).slice(0, 10);
+    byDay.set(day, (byDay.get(day) || 0) + t.netPnl);
+  }
+  const bestDay = [...byDay.values()].reduce((m, v) => (v > m ? v : m), 0);
+  return { topTradePct: round4(bestTrade / grossProfit), topDayPct: round4(bestDay / grossProfit) };
+}
+
 export function buildAnalytics(trades) {
   return {
     overall: summarize(trades),
+    concentration: profitConcentration(trades),
     winLoss: winLossComparison(trades),
     bySymbol: bySymbol(trades),
     bySide: bySide(trades),

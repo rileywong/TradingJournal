@@ -125,6 +125,14 @@ export default function Reports({ analytics, statistics, playbook, drawdownCurve
     );
   }
 
+  const conc = analytics.concentration;
+  if (conc && conc.topTradePct != null) {
+    summary.push(
+      { label: 'Top Trade % of Profit', value: `${Math.round(conc.topTradePct * 100)}%`, hint: 'concentration risk', tone: conc.topTradePct > 0.4 ? 'neg' : undefined },
+      { label: 'Top Day % of Profit', value: `${Math.round(conc.topDayPct * 100)}%` },
+    );
+  }
+
   const st = statistics;
   const d = st && st.daily;
 
