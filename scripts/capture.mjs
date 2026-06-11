@@ -183,6 +183,12 @@ await showPage.getByRole('button', { name: 'Dashboard', exact: true }).click(); 
 const showCell = showPage.locator('.cal-cell.clickable').filter({ hasText: /\$/ }).first();
 if (await showCell.count()) { await showCell.click(); await sleep(700); await showShot('journal', '.modal.day-detail'); }
 
+// dark-mode verification shot
+await showPage.evaluate(() => localStorage.setItem('tjs_theme','dark'));
+await showPage.goto(BASE + '/'); await sleep(1000);
+await showPage.screenshot({ path: OUT + '13-dark-dashboard.png' });
+console.log('shot: 13-dark-dashboard');
+
 // ---- animated tour clips (webm) → public/showcase/<name>.webm ----
 // Each clip records a fresh context (session injected before load) doing a short
 // interaction, so the landing tour can show the app in motion. The matching .png

@@ -37,13 +37,21 @@ export default function BaseChart({ data, makeSeries, mapPoint, height = 240, em
     const el = containerRef.current;
     if (!el) return;
 
+    // Read theme tokens from CSS vars so charts adapt to light/dark.
+    const cssVar = (name, fallback) => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+      return v || fallback;
+    };
+    const text = cssVar('--muted', CHART_TOKENS.text);
+    const grid = cssVar('--border', CHART_TOKENS.grid);
+
     const chart = createChart(el, {
       width: el.clientWidth,
       height,
-      layout: { background: { color: 'transparent' }, textColor: CHART_TOKENS.text, fontFamily: 'inherit' },
-      grid: { vertLines: { color: CHART_TOKENS.grid }, horzLines: { color: CHART_TOKENS.grid } },
-      rightPriceScale: { borderColor: CHART_TOKENS.border },
-      timeScale: { borderColor: CHART_TOKENS.border, timeVisible: true, secondsVisible: false },
+      layout: { background: { color: 'transparent' }, textColor: text, fontFamily: 'inherit' },
+      grid: { vertLines: { color: grid }, horzLines: { color: grid } },
+      rightPriceScale: { borderColor: grid },
+      timeScale: { borderColor: grid, timeVisible: true, secondsVisible: false },
       handleScroll: false,
       handleScale: false,
     });

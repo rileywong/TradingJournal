@@ -40,6 +40,19 @@ describe('buildInsights', () => {
     expect(ins.find((i) => i.id === 'payoff-low').tone).toBe('negative');
   });
 
+  it('labels the best hour from byHourOfDay buckets (key is "HH:00")', () => {
+    const analytics = {
+      byHourOfDay: [
+        { ...bucket('14:00', { netPnl: 900 }), hour: 14 },
+        { ...bucket('09:00', { netPnl: 100 }), hour: 9 },
+      ],
+    };
+    const hour = buildInsights(analytics).find((i) => i.id === 'best-hour');
+    expect(hour).toBeTruthy();
+    expect(hour.text).toContain('2pm');     // 14:00 → 2pm
+    expect(hour.text).not.toMatch(/NaN/);
+  });
+
   it('detects a losing streak and disposition bias', () => {
     const analytics = {
       streaks: { current: -4 },

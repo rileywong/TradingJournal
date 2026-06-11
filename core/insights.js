@@ -4,7 +4,11 @@
 
 const money = (n) => `${n < 0 ? '-' : ''}$${Math.abs(Math.round(n)).toLocaleString()}`;
 const pct = (r) => `${Math.round((r || 0) * 100)}%`;
-const hourLabel = (h) => `${((Number(h) + 11) % 12) + 1}${Number(h) < 12 ? 'am' : 'pm'}`;
+const hourLabel = (h) => {
+  const n = parseInt(String(h), 10); // tolerate 9 or "09:00"
+  if (Number.isNaN(n)) return '';
+  return `${((n + 11) % 12) + 1}${n < 12 ? 'am' : 'pm'}`;
+};
 
 export function buildInsights(analytics, { minTrades = 6 } = {}) {
   if (!analytics) return [];
@@ -29,8 +33,9 @@ export function buildInsights(analytics, { minTrades = 6 } = {}) {
   const hours = byHourOfDay.filter(enough);
   if (hours.length >= 2) {
     const bestH = hours.reduce((a, b) => (b.netPnl > a.netPnl ? b : a));
-    if (bestH.netPnl > 0) {
-      out.push({ id: 'best-hour', tone: 'positive', text: `Your edge peaks around ${hourLabel(bestH.key)} — ${money(bestH.netPnl)} net in that hour.` });
+    const label = hourLabel(bestH.hour ?? bestH.key);
+    if (bestH.netPnl > 0 && label) {
+      out.push({ id: 'best-hour', tone: 'positive', text: `Your edge peaks around ${label} — ${money(bestH.netPnl)} net in that hour.` });
     }
   }
 

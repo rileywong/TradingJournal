@@ -10,6 +10,15 @@ export default function Settings({ user, onClose, onDeleted }) {
   const [pw, setPw] = useState({ state: 'idle', msg: '' });
   const [exporting, setExporting] = useState(false);
   const [restore, setRestore] = useState({ busy: false, msg: '' });
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('tjs_theme') || 'light'; } catch { return 'light'; }
+  });
+  const applyTheme = (t) => {
+    setTheme(t);
+    try { localStorage.setItem('tjs_theme', t); } catch { /* ignore */ }
+    if (t === 'light') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
+  };
   const [confirm, setConfirm] = useState('');
   const [del, setDel] = useState({ busy: false, err: '' });
 
@@ -62,6 +71,17 @@ export default function Settings({ user, onClose, onDeleted }) {
         <div className="settings-section">
           <div className="settings-label">Account</div>
           <div className="settings-email">{user.email}</div>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-label">Appearance</div>
+          <div className="theme-toggle" role="group" aria-label="Theme">
+            {['light', 'dark'].map((t) => (
+              <button key={t} className={theme === t ? 'active' : ''} onClick={() => applyTheme(t)}>
+                {t === 'light' ? 'Light' : 'Dark'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="settings-section">
