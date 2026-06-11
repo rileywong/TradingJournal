@@ -284,17 +284,42 @@ export function createApp(repo = new Repository(), options = {}) {
       cancelAtPeriodEnd: u.cancelAtPeriodEnd,
     }, now);
 
+    const mondayUTC = (ms) => {
+      const d = new Date(ms);
+      d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+      d.setUTCHours(0, 0, 0, 0);
+      return d.toISOString().slice(0, 10);
+    };
+
     const funnel = { active: 0, trialing: 0, past_due: 0, trial_expired: 0, expired: 0, none: 0 };
     let usersWithData = 0, createdAccount = 0, totalAccounts = 0, totalTrades = 0;
     let today = 0, last7 = 0, last30 = 0;
     const dayBuckets = new Map(); // yyyy-mm-dd → signups
+    // Mutually-exclusive segments explaining where non-converters stall.
+    const dropOff = { subscribed: 0, no_account: 0, no_import: 0, in_trial: 0, lapsed: 0 };
+    const cohortMap = new Map(); // week-start → { signups, activated, subscribed }
 
     for (const u of users) {
-      funnel[entOf(u).status] = (funnel[entOf(u).status] || 0) + 1;
+      const st = entOf(u).status;
+      funnel[st] = (funnel[st] || 0) + 1;
       if (u.accountCount > 0) createdAccount += 1;
       if (u.tradeCount > 0) usersWithData += 1;
       totalAccounts += u.accountCount;
       totalTrades += u.tradeCount;
+
+      if (st === 'active') dropOff.subscribed += 1;
+      else if (u.accountCount === 0) dropOff.no_account += 1;
+      else if (u.tradeCount === 0) dropOff.no_import += 1;
+      else if (st === 'trialing' || st === 'past_due') dropOff.in_trial += 1;
+      else dropOff.lapsed += 1;
+
+      const wk = mondayUTC(Date.parse(u.createdAt));
+      const c = cohortMap.get(wk) || { signups: 0, activated: 0, subscribed: 0 };
+      c.signups += 1;
+      if (u.tradeCount > 0) c.activated += 1;
+      if (st === 'active') c.subscribed += 1;
+      cohortMap.set(wk, c);
+
       const age = now - Date.parse(u.createdAt);
       if (age <= DAY) today += 1;
       if (age <= 7 * DAY) last7 += 1;
@@ -303,6 +328,21 @@ export function createApp(repo = new Repository(), options = {}) {
         const key = new Date(Date.parse(u.createdAt)).toISOString().slice(0, 10);
         dayBuckets.set(key, (dayBuckets.get(key) || 0) + 1);
       }
+    }
+
+    // Weekly cohorts (last 8 weeks, oldest → newest): does conversion improve?
+    const cohorts = [];
+    for (let k = 7; k >= 0; k--) {
+      const weekStart = mondayUTC(now - k * 7 * DAY);
+      const c = cohortMap.get(weekStart) || { signups: 0, activated: 0, subscribed: 0 };
+      cohorts.push({
+        weekStart,
+        signups: c.signups,
+        activated: c.activated,
+        subscribed: c.subscribed,
+        activatedPct: c.signups ? c.activated / c.signups : null,
+        subscribedPct: c.signups ? c.subscribed / c.signups : null,
+      });
     }
 
     // 30-day signup series (oldest → newest), zero-filled for a sparkline.
@@ -360,6 +400,8 @@ export function createApp(repo = new Repository(), options = {}) {
       conversion: { paid: payingUsers, lapsed, rate: payingUsers + lapsed > 0 ? payingUsers / (payingUsers + lapsed) : null },
       engagement: { usersWithData, totalAccounts, totalTrades },
       funnelStages,
+      dropOff,
+      cohorts,
       waitlistCount: repo.countWaitlist(),
       signupSeries,
       recentSignups,

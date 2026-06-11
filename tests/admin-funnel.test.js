@@ -58,5 +58,19 @@ describe('admin acquisition funnel', () => {
     expect(byKey.subscribed.pctOfTop).toBeCloseTo(0.2, 5);
     expect(byKey.subscribed.pctOfPrev).toBeCloseTo(0.5, 5);
     expect(byKey.signed_up.pctOfTop).toBe(1);
+
+    // Drop-off segments (why people didn't convert) — mutually exclusive.
+    expect(body.dropOff).toEqual({ subscribed: 1, no_account: 2, no_import: 1, in_trial: 1, lapsed: 0 });
+    const total = Object.values(body.dropOff).reduce((a, b) => a + b, 0);
+    expect(total).toBe(byKey.signed_up.count);
+
+    // Cohorts: 8 weeks; everyone signed up now → the latest week holds them all.
+    expect(body.cohorts).toHaveLength(8);
+    const latest = body.cohorts[body.cohorts.length - 1];
+    expect(latest.signups).toBe(5);
+    expect(latest.activated).toBe(2);
+    expect(latest.subscribed).toBe(1);
+    expect(latest.subscribedPct).toBeCloseTo(0.2, 5);
+    expect(body.cohorts.slice(0, 7).every((c) => c.signups === 0)).toBe(true);
   });
 });

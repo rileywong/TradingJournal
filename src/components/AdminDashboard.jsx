@@ -10,6 +10,14 @@ const STATUS_LABEL = {
   trial_expired: 'Trial expired', expired: 'Expired', none: 'No trial',
 };
 
+const DROPOFF_ROWS = [
+  ['subscribed', 'Converted', 'active subscription', 'st-active'],
+  ['in_trial', 'In trial', 'imported — still trialing', 'st-trialing'],
+  ['no_import', 'No import', 'made an account, never imported', 'st-past_due'],
+  ['no_account', 'No account', 'signed up, never created an account', 'st-none'],
+  ['lapsed', 'Lapsed', 'trial expired without converting', 'st-expired'],
+];
+
 const FUNNEL_ROWS = [
   ['active', 'Active (paying)'],
   ['trialing', 'Trialing'],
@@ -42,7 +50,7 @@ export default function AdminDashboard({ onBack }) {
   }
   if (!stats) return <div className="container"><div className="empty-state">Loading site stats…</div></div>;
 
-  const { totalUsers, signups, funnel, revenue, conversion, engagement, funnelStages = [], waitlistCount = 0, signupSeries, recentSignups, generatedAt } = stats;
+  const { totalUsers, signups, funnel, revenue, conversion, engagement, funnelStages = [], dropOff, cohorts = [], waitlistCount = 0, signupSeries, recentSignups, generatedAt } = stats;
   const maxDay = Math.max(1, ...signupSeries.map((d) => d.count));
 
   return (
@@ -90,6 +98,46 @@ export default function AdminDashboard({ onBack }) {
           ))}
         </div>
       </div>
+
+      {dropOff && (
+        <>
+          <div className="section-title">Where non-converters stall</div>
+          <div className="card admin-panel">
+            <div className="admin-funnel">
+              {DROPOFF_ROWS.map(([key, label, desc, cls]) => (
+                <div key={key} className="admin-funnel-row">
+                  <span className={`admin-dot ${cls}`} />
+                  <span className="admin-funnel-label">{label} <span className="muted" style={{ fontWeight: 500 }}>· {desc}</span></span>
+                  <span className="admin-funnel-count">{(dropOff[key] || 0).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {cohorts.some((c) => c.signups > 0) && (
+        <>
+          <div className="section-title">Weekly cohorts — is conversion improving?</div>
+          <div className="card">
+            <table>
+              <thead>
+                <tr><th>Week of</th><th style={{ textAlign: 'right' }}>Signups</th><th style={{ textAlign: 'right' }}>Activated</th><th style={{ textAlign: 'right' }}>Subscribed</th></tr>
+              </thead>
+              <tbody>
+                {cohorts.filter((c) => c.signups > 0).reverse().map((c) => (
+                  <tr key={c.weekStart}>
+                    <td className="muted">{date(c.weekStart)}</td>
+                    <td style={{ textAlign: 'right' }}>{c.signups}</td>
+                    <td style={{ textAlign: 'right' }}>{c.activated} <span className="afunnel-pct">{pct(c.activatedPct)}</span></td>
+                    <td style={{ textAlign: 'right' }}>{c.subscribed} <span className="afunnel-pct">{pct(c.subscribedPct)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       <div className="section-title">New signups (last 30 days)</div>
       <div className="card admin-panel">
