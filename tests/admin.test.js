@@ -92,3 +92,21 @@ describe('admin stats content', () => {
     expect(body.signupSeries.at(-1).count).toBe(3);
   });
 });
+
+describe('admin users CSV export', () => {
+  it('returns CSV for admins and 403 for everyone else', async () => {
+    const admin = await register(ADMIN);
+    const jane = await register('jane@site.com');
+
+    await stats(jane.token); // warm
+    const res = await request(app).get('/api/admin/users.csv').set('Authorization', `Bearer ${admin.token}`).expect(200);
+    expect(res.headers['content-type']).toMatch(/text\/csv/);
+    expect(res.headers['content-disposition']).toMatch(/greenstreak-users\.csv/);
+    const lines = res.text.trim().split('\n');
+    expect(lines[0]).toBe('email,joinedAt,status,accounts,trades,auth');
+    expect(lines.length).toBe(3); // header + admin + jane (demo excluded)
+
+    await request(app).get('/api/admin/users.csv').set('Authorization', `Bearer ${jane.token}`).expect(403);
+    await request(app).get('/api/admin/users.csv').expect(401);
+  });
+});

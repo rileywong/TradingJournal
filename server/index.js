@@ -344,6 +344,22 @@ export function createApp(repo = new Repository(), options = {}) {
 
   const PRICE_PER_MONTH = 10;
 
+  // Admin: export the full user list as CSV (for outreach / analysis).
+  app.get('/api/admin/users.csv', auth, requireAdmin, wrap((_req, res) => {
+    const users = repo.adminListUsers().filter((u) => u.email !== DEMO_EMAIL);
+    const rows = [['email', 'joinedAt', 'status', 'accounts', 'trades', 'auth'].join(',')];
+    for (const u of users) {
+      const status = computeEntitlement({
+        subscriptionStatus: u.subscriptionStatus, trialEndsAt: u.trialEndsAt,
+        currentPeriodEnd: u.currentPeriodEnd, cancelAtPeriodEnd: u.cancelAtPeriodEnd,
+      }).status;
+      rows.push([u.email, u.createdAt, status, u.accountCount, u.tradeCount, u.oauth ? 'sso' : 'email'].join(','));
+    }
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="greenstreak-users.csv"');
+    res.send(rows.join('\n'));
+  }));
+
   app.get('/api/admin/stats', auth, requireAdmin, wrap((_req, res) => {
     const now = Date.now();
     const DAY = 86_400_000;

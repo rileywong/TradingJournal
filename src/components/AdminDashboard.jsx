@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { api } from '../api.js';
+import { api, getToken } from '../api.js';
+
+async function downloadUsersCsv() {
+  const res = await fetch('/api/admin/users.csv', { headers: { Authorization: `Bearer ${getToken()}` } });
+  if (!res.ok) return;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url; a.download = 'greenstreak-users.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
 
 const money = (n) => `$${(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 const pct = (r) => (r == null ? '—' : `${Math.round(r * 100)}%`);
@@ -60,7 +70,10 @@ export default function AdminDashboard({ onBack }) {
           <div className="section-title" style={{ margin: 0 }}>Site Admin</div>
           <h1 className="admin-title">Overview</h1>
         </div>
-        <button className="btn-ghost" onClick={onBack}>← Back to app</button>
+        <div className="admin-head-actions">
+          <button className="btn-ghost" onClick={downloadUsersCsv}>Export users CSV</button>
+          <button className="btn-ghost" onClick={onBack}>← Back to app</button>
+        </div>
       </div>
 
       <div className="metrics-grid">
