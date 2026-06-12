@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { Repository, RepoError } from '../core/repository.js';
 import { signToken, verifyToken, signUnsubscribe, verifyUnsubscribe } from '../core/auth.js';
-import { parseExecutions, dedupeExecutions, inspectCsv } from '../core/parser.js';
+import { parseExecutions, dedupeExecutions, analyzeDuplicates, inspectCsv } from '../core/parser.js';
 import { matchTrades } from '../core/matcher.js';
 import { computeMetrics, equityCurve, drawdownSeries } from '../core/metrics.js';
 import { buildMonthlyCalendar, buildYearHeatmap } from '../core/calendar.js';
@@ -717,13 +717,17 @@ ${appUrl() ? `<p><a href="${appUrl()}" style="color:#0891b2;font-weight:700">Bac
 
     const { broker: detected, executions: parsed, errors } = parseExecutions(csv, { broker, mapping });
 
+    // Duplicate detection: compare this file's fills against what the account
+    // already holds (before any replace) so we can warn about re-uploads.
+    const existing = repo.listExecutions(req.userId, accountId);
+    const dup = analyzeDuplicates(existing, parsed);
+
     // Append mode merges this file's fills with the account's existing
     // executions (de-duping exact repeats), then re-derives ALL trades from the
     // union — so a position opened on one broker and closed on another matches.
     const addedCount = parsed.length;
     let executions = parsed;
     if (mode === 'append') {
-      const existing = repo.listExecutions(req.userId, accountId);
       executions = dedupeExecutions([...existing, ...parsed]);
     }
 
@@ -742,6 +746,10 @@ ${appUrl() ? `<p><a href="${appUrl()}" style="color:#0891b2;font-weight:700">Bac
       accountBrokers,
       mode,
       addedExecutions: addedCount,
+      duplicates: dup.duplicates,
+      parsedFills: dup.parsed,
+      newFills: dup.added,
+      allDuplicate: dup.allDuplicate,
       imported: saved,
       errors,
       openPositions: open,

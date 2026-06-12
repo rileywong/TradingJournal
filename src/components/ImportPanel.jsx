@@ -189,6 +189,13 @@ export default function ImportPanel({ accountId, onImported }) {
               </div>
             )}
           </div>
+          {result.duplicates > 0 && (
+            <div className="banner warn" style={{ marginTop: 8 }}>
+              {result.allDuplicate
+                ? `Heads up — all ${result.parsedFills} fills in this file are already in this account (looks like a re-upload).`
+                : `${result.duplicates} of ${result.parsedFills} fills were already in this account${result.mode === 'append' ? ' and were skipped' : ''}.`}
+            </div>
+          )}
           {result.errors?.length > 0 && (
             <div className="banner error" style={{ marginTop: 8 }}>
               {result.errors.length} row{result.errors.length !== 1 ? 's' : ''} skipped:{' '}

@@ -277,6 +277,16 @@ await verifyPage.evaluate(() => { const el = document.querySelector('.trade-log'
 await sleep(400);
 await verifyPage.screenshot({ path: OUT + '15-saved-views.png' });
 console.log('shot: 15-saved-views');
+
+// ---- verification: duplicate-import warning (re-upload sam's same CSV) ----
+await verifyPage.goto(BASE + '/'); await sleep(900);
+await verifyPage.evaluate(() => { const el = document.querySelector('.import-panel, .importer'); if (el) el.scrollIntoView(); else window.scrollTo(0, 520); });
+await verifyPage.locator('input[type="file"]').setInputFiles({ name: 'trades.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) });
+await sleep(1200);
+await verifyPage.evaluate(() => { const b = document.querySelector('.import-result'); if (b) b.scrollIntoView({ block: 'center' }); });
+await sleep(300);
+await verifyPage.screenshot({ path: OUT + '16-duplicate-warning.png' });
+console.log('shot: 16-duplicate-warning  (warn banner present:', (await verifyPage.locator('.banner.warn').count()) > 0, ')');
 await verifyPage.close();
 
 await browser.close();

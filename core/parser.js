@@ -268,14 +268,36 @@ export function inspectCsv(text, sampleSize = 5) {
   };
 }
 
+export function executionKey(e) {
+  return [e.symbol, e.action, e.quantity, e.price, e.commission, e.executedAt, e.broker].join('|');
+}
+
 export function dedupeExecutions(executions) {
   const seen = new Set();
   const out = [];
   for (const e of executions) {
-    const key = [e.symbol, e.action, e.quantity, e.price, e.commission, e.executedAt, e.broker].join('|');
+    const key = executionKey(e);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(e);
   }
   return out;
+}
+
+/**
+ * Compare freshly-parsed fills against what's already stored so the UI can warn
+ * about re-uploaded / overlapping data. A "duplicate" is a fill matching one
+ * already present (or an exact repeat earlier in the same file).
+ * @returns {{ parsed:number, added:number, duplicates:number, allDuplicate:boolean }}
+ */
+export function analyzeDuplicates(existing, parsed) {
+  const seen = new Set((existing || []).map(executionKey));
+  let added = 0;
+  let duplicates = 0;
+  for (const e of (parsed || [])) {
+    const k = executionKey(e);
+    if (seen.has(k)) { duplicates += 1; } else { seen.add(k); added += 1; }
+  }
+  const total = (parsed || []).length;
+  return { parsed: total, added, duplicates, allDuplicate: total > 0 && duplicates === total };
 }

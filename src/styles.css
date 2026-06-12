@@ -272,6 +272,7 @@ tbody tr:hover { background: var(--surface-2); }
 .auth-link { background: none; border: none; color: var(--accent); font-weight: 700; font-size: 12px; padding: 0; cursor: pointer; }
 .auth-link:hover { text-decoration: underline; }
 .banner.ok { background: var(--positive-bg); color: #0f8a63; }
+.banner.warn { background: #fef3e2; color: #b45309; }
 
 /* ---------- auth ---------- */
 .auth-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
